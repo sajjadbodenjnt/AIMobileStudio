@@ -6,45 +6,154 @@ import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 
-/** ChatGPT plan-usage client. Never sends project files unless the user asks the agent to inspect them. */
+/**
+ * ChatGPT plan-usage client for a locally running open-source app.
+ * Uses the public Responses API and does not access ChatGPT conversations.
+ */
 public final class ChatGPTAgent {
+  private static final String API = "https://api.openai.com/v1";
   private final ChatGPTAuth auth;
-  public ChatGPTAgent(Context c){auth=new ChatGPTAuth(c);}
-  private String request(String url,String method,String body,String token)throws Exception{
-    HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();c.setRequestMethod(method);
-    c.setConnectTimeout(15000);c.setReadTimeout(120000);c.setRequestProperty("Authorization","Bearer "+token);
-    if(body!=null){c.setDoOutput(true);c.setRequestProperty("Content-Type","application/json");try(OutputStream o=c.getOutputStream()){o.write(body.getBytes(StandardCharsets.UTF_8));}}
-    int code=c.getResponseCode();InputStream in=code>=200&&code<300?c.getInputStream():c.getErrorStream();
-    ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] b=new byte[8192];int n;while((n=in.read(b))>0)out.write(b,0,n);
-    String s=out.toString("UTF-8");c.disconnect();if(code<200||code>=300)throw new IOException("OpenAI HTTP "+code+": "+s);return s;
+
+  public ChatGPTAgent(Context context) { auth = new ChatGPTAuth(context); }
+
+  private JSONObject credentials() throws Exception {
+    JSONObject cred = auth.loadValid();
+    if (cred == null) throw new SecurityException("Connect your ChatGPT account first.");
+    if (!cred.optBoolean("plan_usage_enabled"))
+      throw new SecurityException("ChatGPT plan usage permission is not enabled. Reconnect and approve it.");
+    return cred;
   }
-  public JSONArray models()throws Exception{
-    JSONObject cred=auth.loadValid();if(cred==null||!cred.optBoolean("plan_usage_enabled"))throw new SecurityException("ChatGPT plan usage permission is not enabled.");
-    JSONObject data=new JSONObject(request("https://api.openai.com/v1/models","GET",null,cred.getString("access_token")));
-    JSONArray source=data.optJSONArray("models");if(source==null)source=data.optJSONArray("data");
-    JSONArray result=new JSONArray();if(source!=null)for(int i=0;i<source.length();i++){JSONObject m=source.optJSONObject(i);if(m==null)continue;
-      if(!m.has("visibility")||"list".equals(m.optString("visibility")))result.put(new JSONObject().put("id",m.optString("slug",m.optString("id"))).put("name",m.optString("display_name",m.optString("id"))));}
+
+  public JSONArray models() throws Exception {
+    JSONObject cred = credentials();
+    HttpURLConnection c = (HttpURLConnection) new URL(API + "/models").openConnection();
+    c.setRequestMethod("GET");
+    c.setConnectTimeout(15000);
+    c.setReadTimeout(30000);
+    c.setRequestProperty("Authorization", "Bearer " + cred.getString("access_token"));
+    int code = c.getResponseCode();
+    InputStream in = code >= 200 && code < 300 ? c.getInputStream() : c.getErrorStream();
+    String body = readAll(in);
+    c.disconnect();
+    if (code < 200 || code >= 300) throw apiError(code, body);
+    JSONObject data = new JSONObject(body);
+    JSONArray source = data.optJSONArray("models");
+    JSONArray result = new JSONArray();
+    if (source == null) throw new IOException("Unexpected model catalog: missing models array.");
+    for (int i = 0; i < source.length(); i++) {
+      JSONObject model = source.optJSONObject(i);
+      if (model != null && "list".equals(model.optString("visibility"))) {
+        String slug = model.optString("slug", "");
+        if (!slug.isEmpty()) result.put(new JSONObject()
+          .put("id", slug)
+          .put("name", model.optString("display_name", slug)));
+      }
+    }
     return result;
   }
-  public String generate(String instruction,String projectSummary)throws Exception{
-    JSONObject cred=auth.loadValid();if(cred==null||!cred.optBoolean("plan_usage_enabled"))throw new SecurityException("Sign in and enable ChatGPT plan usage first.");
-    JSONArray available=models();if(available.length()==0)throw new IOException("No models available for this account.");
-    String model=available.getJSONObject(0).getString("id");
-    String prompt="You are the senior Android engineer inside AIMobileStudio. Return ONLY one valid JSON object with schema {\"summary\":string,\"files\":[{\"path\":string,\"content\":string}]}. "+
-      "Every file content must be complete, not abbreviated. Never use markdown fences. Never include absolute paths, ../, shell commands, secrets or API keys. "+
-      "When asked to create a new app, generate a complete Gradle Android project: settings.gradle, root build.gradle, gradle.properties, app/build.gradle, app/src/main/AndroidManifest.xml, Java source under the matching package path, and all required XML resources. "+
-      "Use Java 17, compileSdk 35, minSdk 26, targetSdk 35. Prefer Android framework APIs and avoid AndroidX or external dependencies. "+
-      "Ensure all referenced classes, resources, package names and manifest entries exist and match. Implement real working interactions, input validation, loading/error/empty states and polished UI. "+
-      "Do not output TODOs, pseudocode, placeholder screens, or instructions instead of code. For existing projects, preserve unrelated files and make only necessary changes. "+
-      "File paths must be relative to the selected project root. User request: "+instruction+"\nExisting project files summary:\n"+projectSummary;
-    JSONObject body=new JSONObject().put("model",model).put("store",false).put("stream",false)
-      .put("input",new JSONArray().put(new JSONObject().put("role","user").put("content",prompt)));
-    JSONObject response=new JSONObject(request("https://api.openai.com/v1/responses","POST",body.toString(),cred.getString("access_token")));
-    StringBuilder text=new StringBuilder();JSONArray output=response.optJSONArray("output");
-    if(output!=null)for(int i=0;i<output.length();i++){JSONObject item=output.optJSONObject(i);JSONArray content=item==null?null:item.optJSONArray("content");
-      if(content!=null)for(int j=0;j<content.length();j++){JSONObject part=content.optJSONObject(j);if(part!=null&&"output_text".equals(part.optString("type")))text.append(part.optString("text"));}}
-    if(text.length()==0)text.append(response.optString("output_text",""));
-    if(text.length()==0)throw new IOException("No text returned from Responses API.");
-    return text.toString().replaceAll("^\\s*\\x60{3}(?:json)?\\s*","").replaceAll("\\s*\\x60{3}\\s*$","");
+
+  public String generate(String instruction, String projectSummary) throws Exception {
+    JSONObject cred = credentials();
+    JSONArray available = models();
+    if (available.length() == 0) throw new IOException("No models are available for this ChatGPT account.");
+    String model = available.getJSONObject(0).getString("id");
+
+    String prompt =
+      "You are the senior Android engineer inside AIMobileStudio. Return ONLY one valid JSON object " +
+      "with schema {\\"summary\\":string,\\"files\\":[{\\"path\\":string,\\"content\\":string}]}. " +
+      "Every file content must be complete, not abbreviated. Never use markdown fences. Never include absolute paths, ../, " +
+      "shell commands, secrets or API keys. For a new app, generate a complete Gradle Android project: settings.gradle, " +
+      "root build.gradle, gradle.properties, app/build.gradle, app/src/main/AndroidManifest.xml, Java source under the " +
+      "matching package path, and all required XML resources. Use Java 17, compileSdk 35, minSdk 26, targetSdk 35. " +
+      "Prefer Android framework APIs and avoid AndroidX or external dependencies unless required. Ensure all referenced " +
+      "classes, resources, package names and manifest entries exist and match. Implement requested screens and working " +
+      "interactions, validation, loading/error/empty states and polished responsive UI. Do not output TODOs, pseudocode, " +
+      "placeholder screens or instructions instead of code. For existing projects, preserve unrelated files and make only " +
+      "necessary changes. File paths must be relative to the selected project root. User request: " + instruction +
+      "\\nExisting project files summary:\\n" + projectSummary;
+
+    JSONObject body = new JSONObject()
+      .put("model", model)
+      .put("store", false)
+      .put("stream", true)
+      .put("input", new JSONArray().put(new JSONObject()
+        .put("role", "user")
+        .put("content", prompt)));
+
+    HttpURLConnection c = (HttpURLConnection) new URL(API + "/responses").openConnection();
+    c.setRequestMethod("POST");
+    c.setConnectTimeout(20000);
+    c.setReadTimeout(180000);
+    c.setDoOutput(true);
+    c.setRequestProperty("Authorization", "Bearer " + cred.getString("access_token"));
+    c.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+    c.setRequestProperty("Accept", "text/event-stream");
+    try (OutputStream out = c.getOutputStream()) {
+      out.write(body.toString().getBytes(StandardCharsets.UTF_8));
+    }
+
+    int code = c.getResponseCode();
+    if (code < 200 || code >= 300) {
+      String error = readAll(c.getErrorStream());
+      c.disconnect();
+      throw apiError(code, error);
+    }
+
+    StringBuilder output = new StringBuilder();
+    boolean completed = false;
+    try (BufferedReader reader = new BufferedReader(new InputStreamReader(c.getInputStream(), StandardCharsets.UTF_8))) {
+      String line;
+      while ((line = reader.readLine()) != null) {
+        if (!line.startsWith("data:")) continue;
+        String data = line.substring(5).trim();
+        if (data.isEmpty() || "[DONE]".equals(data)) continue;
+        JSONObject event;
+        try { event = new JSONObject(data); }
+        catch (JSONException malformed) { throw new IOException("Invalid Responses stream event.", malformed); }
+        String type = event.optString("type", "");
+        if ("response.output_text.delta".equals(type)) {
+          output.append(event.optString("delta", ""));
+          if (output.length() > 2_000_000) throw new IOException("AI response exceeded the 2 MB safety limit.");
+        } else if ("response.failed".equals(type)) {
+          JSONObject response = event.optJSONObject("response");
+          JSONObject error = response == null ? null : response.optJSONObject("error");
+          String message = error == null ? "The Responses API reported a failed generation." :
+            error.optString("code", "unknown_error") + ": " + error.optString("message", "Generation failed.");
+          throw new IOException(message);
+        } else if ("response.incomplete".equals(type)) {
+          throw new IOException("AI generation was incomplete: " + event.toString());
+        } else if ("response.completed".equals(type)) {
+          completed = true;
+        }
+      }
+    } finally {
+      c.disconnect();
+    }
+    if (!completed) throw new IOException("AI stream ended before response.completed; generated output was discarded.");
+    String result = output.toString().trim();
+    if (result.isEmpty()) throw new IOException("ChatGPT returned an empty response.");
+    return result.replaceAll("^\\\\s*\\\\x60{3}(?:json)?\\\\s*", "")
+                 .replaceAll("\\\\s*\\\\x60{3}\\\\s*$", "");
+  }
+
+  private static String readAll(InputStream in) throws IOException {
+    if (in == null) return "";
+    try (InputStream input = in; ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+      byte[] buffer = new byte[8192];
+      int n;
+      while ((n = input.read(buffer)) != -1) out.write(buffer, 0, n);
+      return out.toString("UTF-8");
+    }
+  }
+
+  private static IOException apiError(int status, String body) {
+    String detail = body;
+    try {
+      JSONObject json = new JSONObject(body);
+      JSONObject error = json.optJSONObject("error");
+      if (error != null) detail = error.optString("code", "") + ": " + error.optString("message", body);
+      else if (json.has("detail")) detail = json.optString("detail");
+    } catch (Exception ignored) { }
+    return new IOException("OpenAI HTTP " + status + ": " + detail);
   }
 }
