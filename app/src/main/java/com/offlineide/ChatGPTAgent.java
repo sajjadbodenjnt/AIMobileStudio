@@ -7,7 +7,8 @@ import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import android.net.Uri;
-import android.util.Base64;\nimport android.graphics.Bitmap;\nimport android.graphics.BitmapFactory;
+import android.util.Base64;
+import android.graphics.Bitmap;\nimport android.graphics.BitmapFactory;
 
 /**
  * ChatGPT plan-usage client for a locally running open-source app.
@@ -66,7 +67,7 @@ public final class ChatGPTAgent {
 
     String prompt =
       "You are the senior Android engineer inside AIMobileStudio. Return ONLY one valid JSON object " +
-      "with schema {\\"summary\\":string,\\"files\\":[{\\"path\\":string,\\"content\\":string}]}. " +
+      "with schema {\"summary\":string,\"files\":[{\"path\":string,\"content\":string}]}. " +
       "Every file content must be complete, not abbreviated. Never use markdown fences. Never include absolute paths, ../, " +
       "shell commands, secrets or API keys. For a new app, generate a complete Gradle Android project: settings.gradle, " +
       "root build.gradle, gradle.properties, app/build.gradle, app/src/main/AndroidManifest.xml, Java source under the " +
@@ -76,7 +77,7 @@ public final class ChatGPTAgent {
       "interactions, validation, loading/error/empty states and polished responsive UI. Do not output TODOs, pseudocode, " +
       "placeholder screens or instructions instead of code. For existing projects, preserve unrelated files and make only " +
       "necessary changes. File paths must be relative to the selected project root. User request: " + instruction +
-      "\\nExisting project files summary:\\n" + projectSummary;
+      "\nExisting project files summary:\n" + projectSummary;
 
     JSONObject body = new JSONObject()
       .put("model", model)
