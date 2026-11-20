@@ -36,6 +36,22 @@ This roadmap defines measurable milestones. “100% professional” is not a tes
 - [ ] Reproducible release build and install test on real Android devices.
 - [ ] End-to-end airplane-mode test: create → edit → AI assist → build → sign → install.
 
+
+## M6 — ChatGPT-connected coding agent (planned; not yet implemented)
+
+- [ ] Implement official Sign in with ChatGPT for eligible open-source/local-app usage; no password collection or cookie scraping.
+- [ ] Persist per-installation host ID and implement browser OAuth with state, nonce and PKCE.
+- [ ] Verify identity and granted `chatgpt.tokens.use.direct` permission; identity-only login must never enable inference.
+- [ ] Add encrypted credential storage, refresh, account switching, disconnect and revocation handling.
+- [ ] Discover authorized models and verify a completed Responses API request.
+- [ ] Add a scoped agent planner and typed project tools: list/read/propose-write/patch/build-status.
+- [ ] Add diff preview, backups, revert and audit log; require approval for destructive changes and builds.
+- [ ] Connect the agent to the on-device build engine only after M3 is complete.
+- [ ] Retain a separate local-model provider for airplane-mode use.
+- [ ] Pass all acceptance tests in `docs/CHATGPT_AGENT_DESIGN.md`.
+
+See [ChatGPT Agent Design](docs/CHATGPT_AGENT_DESIGN.md) for security boundaries, architecture and test criteria.
+
 ## Offline definition
 
 After a one-time provisioning step, all editing, AI inference, dependency resolution, compilation, packaging, signing and installation must work with network access disabled. First-time downloads cannot be honestly described as offline. The installer must show which toolchain/model packages are missing and their storage footprint.
