@@ -1,18 +1,29 @@
-# Termux ARM64 Build Toolchain
+# ARM64 Android build toolchain for AI Mobile Studio
 
-AIMobileStudio needs a real Android build toolchain, not only a Build button.
+AI Mobile Studio uses ChatGPT for code generation. Android builds run in a separate, user-approved Termux process because Android applications cannot execute another app's private binaries or SDK files.
 
-## Supported preparation path
+## Automated bootstrap
 
-For Android phones running Termux on ARM64, this repository provides:
+In the main Termux app (not Ubuntu/proot), run:
 
 ```bash
 bash scripts/install-termux-toolchain.sh
 ```
 
-The bootstrap installs/checks available Termux host packages (JDK 17, Gradle, Android platform utilities) and detects an existing Android SDK. It deliberately does not overwrite or silently download an SDK into an arbitrary directory.
+The bootstrap now:
+- updates Termux package indexes;
+- installs/checks OpenJDK 21, Gradle, Android platform utilities, AAPT/AAPT2, D8, apksigner, curl and archive tools;
+- detects the SDK path (defaults to `$HOME/lib/android-sdk-9123335`);
+- installs Android API 35 when a usable `sdkmanager` is already present;
+- reports missing tools and writes a small environment file at `~/.aimobilestudio-toolchain.env`.
 
-Set the SDK path before running it if needed:
+Load the detected environment in Termux:
+
+```bash
+source ~/.aimobilestudio-toolchain.env
+```
+
+If the SDK is elsewhere, set it before running the bootstrap:
 
 ```bash
 export ANDROID_HOME="$HOME/lib/android-sdk-9123335"
@@ -20,40 +31,38 @@ export ANDROID_SDK_ROOT="$ANDROID_HOME"
 bash scripts/install-termux-toolchain.sh
 ```
 
-The app now provides a Termux handoff: select a project in APK Build Controller, export its ZIP to Downloads, and copy the displayed commands into Termux. The ZIP contains a build script that downloads Gradle 8.9 if needed, uses the detected Android SDK, resolves dependencies online, builds `assembleDebug`, and copies the APK to `~/storage/downloads/AIMobileStudio-Builds/`. In the app, choose **Import APK built in Termux** and select that APK. This requires internet on the first build unless all Gradle/Maven artifacts are already cached.
+The bootstrap deliberately does not blindly run Google's Linux SDK Build Tools binaries on ARM64. Several official binaries are x86_64-only; Termux-native utilities must be used where needed. It also does not download unofficial prebuilt binaries from unverified mirrors.
 
-## Required components
+## What must be present for a build
 
-- JDK 17 (Java and javac)
-- Gradle compatible with the project's Android Gradle Plugin
-- Android SDK Platform 35
-- Android Build Tools (35.0.0 or a project-compatible version)
-- Platform tools where needed
-- Android Gradle Plugin and every transitive Maven artifact cached locally
-- Project dependencies and Gradle wrapper distribution cached locally
+- ARM64-compatible JDK 17 or 21;
+- Gradle or a project Gradle Wrapper distribution;
+- Android SDK Platform 35 (or the platform required by the project);
+- Android Gradle Plugin and all required Maven dependencies;
+- ARM64-compatible AAPT2 and other build utilities required by the project's AGP version;
+- sufficient free storage and memory.
 
-After the first successful online dependency resolution, test with:
+The app's current private `BuildController` expects a separate app-private toolchain at `files/toolchain`. The Termux bootstrap does not populate that private directory. The currently supported on-device route is the explicit project ZIP export to Termux, build there, then import the produced APK.
 
-```bash
-gradle --offline --no-daemon assembleDebug
+## Build and verify
+
+The exported Termux build script supports debug and release APK tasks. It checks the SDK and Gradle, builds the Android application module(s), copies non-empty APKs to:
+
+```
+~/storage/downloads/AIMobileStudio-Builds/
 ```
 
-A genuine offline test must be performed with network access disabled. If Gradle reports a missing artifact, the toolchain is not yet fully provisioned.
+It verifies APK signatures with `apksigner` when available. A release build is not production-ready unless the project is configured with the user's own signing key. Never put a keystore, signing password, OAuth token, or API key in a project ZIP or AI prompt.
 
-## Important Android sandbox boundary
+AAB generation and automated error-repair/rebuild are still separate implementation tasks; do not assume they are available until the app exposes those actions and a real build test passes.
 
-Termux and AIMobileStudio are separate Android applications. AIMobileStudio cannot simply execute Termux's private binaries or read its private SDK directory. The current in-app BuildController expects an app-private toolchain at `files/toolchain`; the Termux bootstrap above does not populate that directory.
+## Validation
 
-The bridge is implemented as an explicit SAF export/import workflow. It does not cross the Android app sandbox or execute Termux commands silently; the user runs the exported script in Termux and then selects the APK to import.
+A successful bootstrap is only a tool-presence check. A genuine readiness test must build a real Android project, verify the APK with apksigner, and install it on the target device. Offline readiness must be tested separately with network access disabled after all Gradle/Maven artifacts are cached.
 
-## Build pipeline and limitations
+## Security boundaries
 
-1. Provision and validate the toolchain.
-2. Resolve/cache Gradle wrapper, AGP and Maven dependencies.
-3. Run Gradle offline with cancellation and bounded log capture.
-4. Locate and validate the resulting APK.
-5. Sign with a user-controlled signing key, verify with apksigner.
-6. Hand the APK to Android's package installer.
-7. Test the entire flow in airplane mode.
-
-Never put signing passwords, keystore files, OAuth tokens, or other credentials into AI prompts or project context.
+- Android app sandboxing prevents AIMobileStudio from directly reading Termux's private SDK directory.
+- Termux command execution must be explicitly permission-gated by the user.
+- Project ZIP export excludes build caches, local.properties, environment files, keystores and credential-like files.
+- Android's package installer still requires user confirmation.
