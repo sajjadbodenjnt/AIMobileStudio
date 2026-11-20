@@ -1,6 +1,6 @@
 # AI Mobile Studio
 
-AI Mobile Studio is a native Android app-building workspace. It combines a ChatGPT-connected coding agent with a local Android project workspace and a guarded Gradle build controller.
+AI Mobile Studio is a ChatGPT-powered native Android app-building workspace. It uses ChatGPT for AI code generation, with a local Android project workspace and a guarded Gradle build controller. It does not include a local Ollama AI assistant.
 
 ## Current implementation
 
@@ -10,6 +10,7 @@ AI Mobile Studio is a native Android app-building workspace. It combines a ChatG
 - AI-generated project files are previewed and require user approval before being written.
 - Project workspace path validation and backups for replaced files.
 - Local project creation and source editing.
+- ChatGPT is the app's AI provider; no Ollama installation, local model download, or local AI server is required.
 - Persistent reference-image queue with no fixed app-imposed item count, multi-select picker, duplicate removal, and saved document permissions where supported.
 - Reference images are decoded one at a time and downscaled to a maximum 2048-pixel edge before upload to reduce memory pressure.
 - Offline build controller invokes only the app-private Gradle executable, checks the Android 35 SDK platform, drains build logs safely, enforces a build timeout, and verifies that a non-empty APK was produced.
