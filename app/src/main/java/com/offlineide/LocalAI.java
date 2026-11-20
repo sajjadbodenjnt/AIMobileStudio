@@ -18,7 +18,9 @@ public final class LocalAI {
             try (OutputStream out = c.getOutputStream()) { out.write(data.toString().getBytes(StandardCharsets.UTF_8)); }
             int code = c.getResponseCode();
             InputStream in = code >= 200 && code < 300 ? c.getInputStream() : c.getErrorStream();
-            ByteArrayOutputStream bytes = new ByteArrayOutputStream(); in.transferTo(bytes);
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            byte[] buffer = new byte[8192]; int count;
+            while ((count = in.read(buffer)) != -1) bytes.write(buffer, 0, count);
             JSONObject result = new JSONObject(bytes.toString(StandardCharsets.UTF_8));
             if (code < 200 || code >= 300) return "ERROR: " + result.optString("error", "HTTP " + code);
             return result.optString("response", "(empty response)");
