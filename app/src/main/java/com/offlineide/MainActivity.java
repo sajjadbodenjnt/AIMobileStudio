@@ -17,10 +17,10 @@ public class MainActivity extends Activity {
   private TextView status;
   private EditText editor;
   private File workspace;
-  private final ChatGPTAuth chatAuth=new ChatGPTAuth(this);
+  private ChatGPTAuth chatAuth;
   private int dp(float n){return (int)(n*getResources().getDisplayMetrics().density);}
 
-  @Override public void onCreate(Bundle state){super.onCreate(state);workspace=new File(getFilesDir(),"workspace");if(!workspace.exists())workspace.mkdirs();home();}
+  @Override public void onCreate(Bundle state){super.onCreate(state);chatAuth=new ChatGPTAuth(this);workspace=new File(getFilesDir(),"workspace");if(!workspace.exists())workspace.mkdirs();home();}
   private static void writeText(File file,String value)throws Exception{
     File parent=file.getParentFile();if(parent!=null&&!parent.exists())parent.mkdirs();
     try(FileOutputStream out=new FileOutputStream(file,false)){out.write(value.getBytes(StandardCharsets.UTF_8));out.flush();}
