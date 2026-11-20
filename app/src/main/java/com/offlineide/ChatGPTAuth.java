@@ -56,8 +56,10 @@ public final class ChatGPTAuth {
     String value=context.getSharedPreferences(PREF,0).getString("credential",null);if(value==null)return null;
     String[] p=value.split("\\.",2);Cipher c=Cipher.getInstance("AES/GCM/NoPadding");c.init(Cipher.DECRYPT_MODE,key(),new GCMParameterSpec(128,unb64(p[0])));
     JSONObject record=new JSONObject(new String(c.doFinal(unb64(p[1])),StandardCharsets.UTF_8));
-    if(record.optLong("expires_at",0)<System.currentTimeMillis()+60000L)record=refresh(record);
     return record;
+  }
+  public JSONObject loadValid()throws Exception{
+    JSONObject record=load();if(record!=null&&record.optLong("expires_at",0)<System.currentTimeMillis()+60000L)record=refresh(record);return record;
   }
   private JSONObject refresh(JSONObject old)throws Exception{
     String rt=old.optString("refresh_token","");
