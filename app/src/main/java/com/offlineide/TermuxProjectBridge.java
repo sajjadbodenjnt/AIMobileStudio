@@ -43,12 +43,12 @@ public final class TermuxProjectBridge {
         !new File(root, "app/build.gradle").isFile()) throw new IOException("Not a complete Android Gradle project.");
     try (ZipOutputStream zip = new ZipOutputStream(new BufferedOutputStream(destination))) {
       zip.putNextEntry(new ZipEntry(root.getName() + "/")); zip.closeEntry();
-      addTree(zip, root, 0);
+      addTree(zip, root, root.getName(), 0);
       zip.putNextEntry(new ZipEntry(root.getName() + "/AIMobileStudio-Termux-Build.sh"));
       zip.write(BUILD_SCRIPT.getBytes("UTF-8")); zip.closeEntry(); zip.finish();
     }
   }
-  private static void addTree(ZipOutputStream zip, File dir, int depth) throws IOException {
+  private static void addTree(ZipOutputStream zip, File dir, String prefix, int depth) throws IOException {
     if (depth > 30) throw new IOException("Project nesting is too deep.");
     File[] children = dir.listFiles(); if (children == null) return;
     for (File child : children) {
@@ -58,10 +58,10 @@ public final class TermuxProjectBridge {
           n.endsWith(".keystore") || n.contains("secret") || n.contains("credential") ||
           n.equals("keystore.properties")) continue;
       if (child.isDirectory()) {
-        zip.putNextEntry(new ZipEntry(child.getName() + "/")); zip.closeEntry();
-        addTree(zip, child, depth + 1);
+        zip.putNextEntry(new ZipEntry(prefix + "/" + child.getName() + "/")); zip.closeEntry();
+        addTree(zip, child, prefix + "/" + child.getName(), depth + 1);
       } else if (child.isFile()) {
-        zip.putNextEntry(new ZipEntry(child.getName()));
+        zip.putNextEntry(new ZipEntry(prefix + "/" + child.getName()));
         try (InputStream in = new BufferedInputStream(new FileInputStream(child))) {
           byte[] b = new byte[16384]; int count; while ((count = in.read(b)) != -1) zip.write(b, 0, count);
         }
