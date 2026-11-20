@@ -29,7 +29,7 @@ public final class TermuxRunner {
     }
   }
 
-  public static void runBuild(Activity activity, String projectName) {
+  public static void runBuild(Activity activity, String projectName, String buildType) {
     String safe = projectName == null ? "" : projectName.replaceAll("[^A-Za-z0-9._-]", "_");
     if (safe.isEmpty() || safe.equals(".") || safe.equals("..")) {
       Toast.makeText(activity, "Invalid project name.", Toast.LENGTH_LONG).show();
@@ -53,7 +53,7 @@ public final class TermuxRunner {
       return;
     }
 
-    String home = "/data/data/com.termux/files/home";
+    if (buildType == null || !buildType.matches("debug|release|aab|aab-release")) {\n      Toast.makeText(activity, "Invalid build type.", Toast.LENGTH_LONG).show(); return;\n    }\n    String home = "/data/data/com.termux/files/home";
     String zip = home + "/storage/downloads/" + safe + "-source.zip";
     String buildRoot = home + "/storage/downloads/aimobilestudio-builds";
     String project = buildRoot + "/" + safe;
@@ -62,7 +62,7 @@ public final class TermuxRunner {
       "mkdir -p " + quote(buildRoot) + "; " +
       "unzip -o " + quote(zip) + " -d " + quote(buildRoot) + "; " +
       "cd " + quote(project) + "; " +
-      "bash AIMobileStudio-Termux-Build.sh";
+      "AIMS_BUILD_TYPE=" + quote(buildType) + " bash AIMobileStudio-Termux-Build.sh";
 
     Intent intent = new Intent("com.termux.RUN_COMMAND");
     intent.setComponent(new ComponentName(TERMUX_PACKAGE, "com.termux.app.RunCommandService"));
