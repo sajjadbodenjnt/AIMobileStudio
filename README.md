@@ -13,16 +13,16 @@ AI Mobile Studio is a ChatGPT-powered native Android app-building workspace. It 
 - ChatGPT is the app's AI provider; no Ollama installation, local model download, or local AI server is required.
 - Persistent reference-image queue with no fixed app-imposed item count, multi-select picker, duplicate removal, and saved document permissions where supported.
 - Reference images are decoded one at a time and downscaled to a maximum 2048-pixel edge before upload to reduce memory pressure.
-- Offline build controller invokes only the app-private Gradle executable, checks the Android 35 SDK platform, drains build logs safely, enforces a build timeout, and verifies that a non-empty APK was produced.
+- Termux bridge exports a project ZIP through Android's Storage Access Framework, excludes build caches and signing secrets, bundles a Gradle 8.9 build script, and imports the resulting APK through a user-selected document.
 - GitHub Actions workflow builds the AI Mobile Studio app itself and uploads its debug APK as a workflow artifact.
 
 ## Important capability boundaries
 
 This repository is an actively developed builder, not yet a verified one-click professional APK factory. Image queue capacity is still bounded by device storage/RAM, network transport, request size, and the connected ChatGPT model/account/service limits; the app does not bypass those provider limits. Current generation sends the selected queue in a request, so very large queues still need the planned resumable batch-analysis pipeline.
 
-The current Android app does **not** yet contain a complete app-private Gradle/JDK/Android SDK toolchain. The offline build controller reports missing prerequisites until that toolchain is provisioned. The Termux bootstrap script prepares Termux; it does not automatically grant this Android app access to Termux's private files.
+The Android app does not execute Termux's private binaries (Android sandbox isolation prevents that). It now includes an explicit SAF bridge: export a selected project as a ZIP, run its bundled `AIMobileStudio-Termux-Build.sh` inside Termux, then import the resulting APK back into the app for installation. This is a user-confirmed handoff, not a silent background build.
 
-The GitHub Actions workflow currently builds **AI Mobile Studio itself**. It does not yet accept arbitrary projects generated on the phone, build them remotely, and return their APK to the app. That feature requires a secure project-upload/dispatch channel and authenticated artifact retrieval.
+The GitHub Actions workflow builds **AI Mobile Studio itself**. Arbitrary generated projects are built locally through the explicit Termux bridge, not by the GitHub workflow.
 
 A debug APK produced by CI is for testing. A production release requires a user-controlled signing key and a release-signing flow.
 
