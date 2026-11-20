@@ -20,10 +20,11 @@ public class MainActivity extends Activity {
   private ChatGPTAuth chatAuth;
   private static final int PICK_IMAGES = 4107;
   private final ArrayList<Uri> selectedImages = new ArrayList<>();
+  private ImageQueueStore imageQueue;
   private TextView imageStatus;
   private int dp(float n){return (int)(n*getResources().getDisplayMetrics().density);}
 
-  @Override public void onCreate(Bundle state){super.onCreate(state);chatAuth=new ChatGPTAuth(this);workspace=new File(getFilesDir(),"workspace");if(!workspace.exists())workspace.mkdirs();home();}
+  @Override public void onCreate(Bundle state){super.onCreate(state);chatAuth=new ChatGPTAuth(this);imageQueue=new ImageQueueStore(this);selectedImages.addAll(imageQueue.all());workspace=new File(getFilesDir(),"workspace");if(!workspace.exists())workspace.mkdirs();home();}
   private static void writeText(File file,String value)throws Exception{
     File parent=file.getParentFile();if(parent!=null&&!parent.exists())parent.mkdirs();
     try(FileOutputStream out=new FileOutputStream(file,false)){out.write(value.getBytes(StandardCharsets.UTF_8));out.flush();}
@@ -51,9 +52,9 @@ public class MainActivity extends Activity {
   private void chooseImages(){
     android.content.Intent intent=new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
     intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);intent.setType("image/*");
-    intent.putExtra(android.content.Intent.EXTRA_ALLOW_MULTIPLE,true);startActivityForResult(intent,PICK_IMAGES);
+    intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION|android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);\n    intent.putExtra(android.content.Intent.EXTRA_ALLOW_MULTIPLE,true);startActivityForResult(intent,PICK_IMAGES);
   }
-  private void updateImageStatus(){if(imageStatus!=null)imageStatus.setText("Attached images: "+selectedImages.size()+" • You can add more");}
+  private void updateImageStatus(){if(imageStatus!=null)imageStatus.setText("Reference image queue: "+selectedImages.size()+" • Saved on this device");}\n  private void clearImageQueue(){imageQueue.clear();selectedImages.clear();updateImageStatus();}
   private void home(){
     shell("AIMOBILESTUDIO");
     body.addView(label("Offline-first Android app development studio",16));
@@ -101,7 +102,7 @@ public class MainActivity extends Activity {
     EditText appName=new EditText(this);appName.setSingleLine(true);appName.setTextColor(Color.WHITE);appName.setHint("App name (example: MyShop)");body.addView(appName);
     selectedImages.clear();
     EditText prompt=new EditText(this);prompt.setTextColor(Color.WHITE);prompt.setMinLines(5);prompt.setHint("Describe every feature, screen and design you want. You can write in Bangla or English.");body.addView(prompt);
-    body.addView(action("＋ Attach design images / screenshots",this::chooseImages));imageStatus=label("Attached images: 0",12);body.addView(imageStatus);
+    body.addView(action("＋ Add design images / screenshots",this::chooseImages));imageStatus=label("",12);body.addView(imageStatus);updateImageStatus();body.addView(action("Clear saved image queue",this::clearImageQueue));
     body.addView(action("Generate complete Android app",()->{
       String rawName=appName.getText().toString().trim();
       String name=rawName.replaceAll("[^A-Za-z0-9_]","");
@@ -161,7 +162,7 @@ public class MainActivity extends Activity {
     body.addView(label("\nDescribe the Android app or code change. The agent proposes files first; nothing is written until you approve.",13));
     selectedImages.clear();
     EditText request=new EditText(this);request.setTextColor(Color.WHITE);request.setMinLines(4);request.setHint("Example: Build a polished expense tracker with dashboard, transactions and settings…");body.addView(request);
-    body.addView(action("＋ Attach reference images",this::chooseImages));imageStatus=label("Attached images: 0",12);body.addView(imageStatus);
+    body.addView(action("＋ Add reference images",this::chooseImages));imageStatus=label("",12);body.addView(imageStatus);updateImageStatus();body.addView(action("Clear saved image queue",this::clearImageQueue));
     body.addView(action("Generate project files",()->{
       String q=request.getText().toString().trim();if(q.isEmpty()&&selectedImages.isEmpty())return;final ArrayList<Uri> images=new ArrayList<>(selectedImages);File[] ps=projects();
       if(ps.length==0){status.setText("Create a project before asking the agent to edit files.");return;}
