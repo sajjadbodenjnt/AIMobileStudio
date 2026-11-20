@@ -18,6 +18,9 @@ public class MainActivity extends Activity {
   private EditText editor;
   private File workspace;
   private ChatGPTAuth chatAuth;
+  private static final int PICK_IMAGES = 4107;
+  private final ArrayList<Uri> selectedImages = new ArrayList<>();
+  private TextView imageStatus;
   private int dp(float n){return (int)(n*getResources().getDisplayMetrics().density);}
 
   @Override public void onCreate(Bundle state){super.onCreate(state);chatAuth=new ChatGPTAuth(this);workspace=new File(getFilesDir(),"workspace");if(!workspace.exists())workspace.mkdirs();home();}
@@ -38,6 +41,19 @@ public class MainActivity extends Activity {
     ScrollView scroll=new ScrollView(this);body=new LinearLayout(this);body.setOrientation(1);scroll.addView(body);
     page.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));status=label("READY • LOCAL WORKSPACE",12);status.setTextColor(0xff6fe0a0);status.setPadding(0,dp(10),0,0);page.addView(status);setContentView(page);
   }
+  @Override protected void onActivityResult(int requestCode,int resultCode,android.content.Intent data){
+    super.onActivityResult(requestCode,resultCode,data);
+    if(requestCode!=PICK_IMAGES||resultCode!=RESULT_OK||data==null)return;
+    if(data.getClipData()!=null){android.content.ClipData clip=data.getClipData();for(int i=0;i<clip.getItemCount();i++){Uri u=clip.getItemAt(i).getUri();if(u!=null&&!selectedImages.contains(u))selectedImages.add(u);}}
+    else if(data.getData()!=null&&!selectedImages.contains(data.getData()))selectedImages.add(data.getData());
+    updateImageStatus();
+  }
+  private void chooseImages(){
+    android.content.Intent intent=new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+    intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);intent.setType("image/*");
+    intent.putExtra(android.content.Intent.EXTRA_ALLOW_MULTIPLE,true);startActivityForResult(intent,PICK_IMAGES);
+  }
+  private void updateImageStatus(){if(imageStatus!=null)imageStatus.setText("Attached images: "+selectedImages.size()+" • You can add more");}
   private void home(){
     shell("AIMOBILESTUDIO");
     body.addView(label("Offline-first Android app development studio",16));
@@ -83,11 +99,14 @@ public class MainActivity extends Activity {
     shell("CREATE APP WITH CHATGPT");
     body.addView(label("Describe the app you want. ChatGPT will generate a complete Android Studio project, then you review every file before it is saved.",14));
     EditText appName=new EditText(this);appName.setSingleLine(true);appName.setTextColor(Color.WHITE);appName.setHint("App name (example: MyShop)");body.addView(appName);
+    selectedImages.clear();
     EditText prompt=new EditText(this);prompt.setTextColor(Color.WHITE);prompt.setMinLines(5);prompt.setHint("Describe every feature, screen and design you want. You can write in Bangla or English.");body.addView(prompt);
+    body.addView(action("＋ Attach design images / screenshots",this::chooseImages));imageStatus=label("Attached images: 0",12);body.addView(imageStatus);
     body.addView(action("Generate complete Android app",()->{
       String rawName=appName.getText().toString().trim();
       String name=rawName.replaceAll("[^A-Za-z0-9_]","");
       String instruction=prompt.getText().toString().trim();
+      final ArrayList<Uri> images=new ArrayList<>(selectedImages);
       if(name.isEmpty()||instruction.isEmpty()){status.setText("Enter an app name and describe your app.");return;}
       try{
         JSONObject profile=chatAuth.load();
@@ -102,7 +121,7 @@ public class MainActivity extends Activity {
           "Implement the requested screens and interactions, polished responsive Material-like styling using framework widgets/drawables, validation, empty/loading/error states, and local persistence where appropriate. "+
           "Do not leave TODOs, pseudocode, placeholders, or omitted files. Ensure package names and manifest activity names match. Return only files needed for a complete Gradle Android project.";
         new Thread(()->{try{
-          String raw=new ChatGPTAgent(this).generate(fullRequest,"");
+          String raw=new ChatGPTAgent(this).generate(fullRequest,"",images);
           JSONObject plan=new JSONObject(raw);
           runOnUiThread(()->reviewPlan(project,plan));
         }catch(Exception e){runOnUiThread(()->{deleteTree(project);showError("App generation failed",e);});}}).start();
@@ -140,12 +159,14 @@ public class MainActivity extends Activity {
   }
   private void agentPrompt(){
     body.addView(label("\nDescribe the Android app or code change. The agent proposes files first; nothing is written until you approve.",13));
+    selectedImages.clear();
     EditText request=new EditText(this);request.setTextColor(Color.WHITE);request.setMinLines(4);request.setHint("Example: Build a polished expense tracker with dashboard, transactions and settings…");body.addView(request);
+    body.addView(action("＋ Attach reference images",this::chooseImages));imageStatus=label("Attached images: 0",12);body.addView(imageStatus);
     body.addView(action("Generate project files",()->{
-      String q=request.getText().toString().trim();if(q.isEmpty())return;File[] ps=projects();
+      String q=request.getText().toString().trim();if(q.isEmpty()&&selectedImages.isEmpty())return;final ArrayList<Uri> images=new ArrayList<>(selectedImages);File[] ps=projects();
       if(ps.length==0){status.setText("Create a project before asking the agent to edit files.");return;}
       chooseProject(ps,project->{status.setText("ChatGPT is planning and generating code…");
-        new Thread(()->{try{String summary=projectSummary(project);String raw=new ChatGPTAgent(this).generate(q,summary);JSONObject plan=new JSONObject(raw);JSONArray files=plan.getJSONArray("files");
+        new Thread(()->{try{String summary=projectSummary(project);String raw=new ChatGPTAgent(this).generate(q,summary,images);JSONObject plan=new JSONObject(raw);JSONArray files=plan.getJSONArray("files");
           runOnUiThread(()->reviewPlan(project,plan));}catch(Exception e){runOnUiThread(()->showError("Agent request failed",e));}}).start();
       });
     }));
