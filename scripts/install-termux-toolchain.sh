@@ -1,68 +1,96 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# AIMobileStudio ARM64 build-toolchain bootstrap for Termux.
-# Run: bash scripts/install-termux-toolchain.sh
+# AI Mobile Studio: ARM64 Termux toolchain bootstrap.
+# Installs host-native Termux tools, provisions Android platform metadata, and verifies ARM64 executables.
 set -Eeuo pipefail
 
-if [[ "${PREFIX:-}" != "/data/data/com.termux/files/usr" ]]; then
-  echo "ERROR: Run this script inside Termux (not inside Ubuntu/proot)." >&2
-  exit 1
-fi
+fail(){ printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+info(){ printf '\n== %s ==\n' "$*"; }
+ok(){ printf '  [OK] %s\n' "$*"; }
+warn(){ printf '  [WARN] %s\n' "$*" >&2; }
 
-echo "== AIMobileStudio Termux toolchain bootstrap =="
-echo "This installs host-side tools in Termux. It does not copy Linux binaries into the Android app sandbox."
+[[ "${PREFIX:-}" == "/data/data/com.termux/files/usr" ]] || fail "Run this in the main Termux app, not Ubuntu/proot."
+[[ "$(uname -m)" == "aarch64" ]] || warn "This bootstrap is primarily configured for ARM64; detected $(uname -m)."
+
+SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/lib/android-sdk-9123335}}"
+SDK="${SDK%/}"
+export ANDROID_HOME="$SDK" ANDROID_SDK_ROOT="$SDK"
+mkdir -p "$SDK"
+
+info "Updating Termux package indexes"
 pkg update -y
 
-for package in openjdk-17 gradle android-tools aapt; do
-  echo
-  echo "Installing/checking: $package"
-  if ! pkg install -y "$package"; then
-    echo "WARNING: Package '$package' was unavailable or failed. Continuing; the final doctor will report missing tools." >&2
-  fi
-done
-
-# Optional package name differs across Termux repository snapshots.
-if ! command -v apksigner >/dev/null 2>&1; then
-  pkg install -y apksigner || true
-fi
-
-echo
-echo "== Detected tools =="
-for tool in java javac gradle adb aapt aapt2 apksigner; do
-  if command -v "$tool" >/dev/null 2>&1; then
-    printf '%-12s %s\n' "$tool" "$(command -v "$tool")"
+# These packages provide Android-host-native tools. Google Linux build-tools executables
+# are x86_64 and must not be blindly executed on an ARM64 Android phone.
+PACKAGES=(openjdk-21 gradle android-tools aapt aapt2 d8 apksigner curl wget unzip zip git)
+for package in "${PACKAGES[@]}"; do
+  if dpkg -s "$package" >/dev/null 2>&1; then
+    ok "$package already installed"
   else
-    printf '%-12s MISSING\n' "$tool"
+    info "Installing $package"
+    pkg install -y "$package" || warn "Package $package is unavailable in the configured Termux repositories."
   fi
 done
 
-if command -v java >/dev/null 2>&1; then java -version 2>&1 | head -n 3; fi
-if command -v gradle >/dev/null 2>&1; then gradle --version | head -n 8; fi
+info "Checking Java and Gradle"
+command -v java >/dev/null 2>&1 || fail "JDK is missing. Install openjdk-21 in Termux."
+java -version 2>&1 | head -n 3
+command -v gradle >/dev/null 2>&1 || fail "Gradle is missing. Install the Termux gradle package."
+gradle --version | grep -E '^Gradle ' | head -n 1
 
-# Discover an existing SDK; do not download or overwrite one automatically.
-SDK=""
-for candidate in "${ANDROID_SDK_ROOT:-}" "${ANDROID_HOME:-}" "$HOME/lib/android-sdk" "$HOME/Android/Sdk"; do
-  if [[ -n "$candidate" && -d "$candidate/platform-tools" || -n "$candidate" && -d "$candidate/build-tools" ]]; then
-    SDK="$candidate"
-    break
+info "Provisioning Android SDK platform 35"
+if [[ ! -f "$SDK/platforms/android-35/android.jar" ]]; then
+  SDKMANAGER=""
+  for candidate in "$SDK/cmdline-tools/latest/bin/sdkmanager" "$SDK/cmdline-tools/bin/sdkmanager" "$HOME/lib/android-sdk/cmdline-tools/latest/bin/sdkmanager"; do
+    if [[ -f "$candidate" ]]; then SDKMANAGER="$candidate"; break; fi
+  done
+  if [[ -n "$SDKMANAGER" ]]; then
+    chmod +x "$SDKMANAGER" 2>/dev/null || true
+    if command -v termux-fix-shebang >/dev/null 2>&1; then termux-fix-shebang "$SDKMANAGER" || true; fi
+    export JAVA_OPTS="${JAVA_OPTS:-} -Djava.net.preferIPv4Stack=true"
+    yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses >/dev/null 2>&1 || true
+    "$SDKMANAGER" --sdk_root="$SDK" "platforms;android-35" || fail "Could not install Android API 35 platform."
+  else
+    warn "sdkmanager not found. Android SDK platform 35 was not downloaded."
+    warn "Google command-line tools can be placed at: $SDK/cmdline-tools/latest/bin/sdkmanager"
+  fi
+fi
+[[ -f "$SDK/platforms/android-35/android.jar" ]] && ok "Android API 35 platform" || warn "Android API 35 platform is still missing."
+
+info "Checking native ARM64 build utilities"
+for tool in aapt aapt2 d8 apksigner zipalign adb; do
+  if command -v "$tool" >/dev/null 2>&1; then
+    path="$(command -v "$tool")"
+    if file "$path" 2>/dev/null | grep -qi 'x86-64'; then
+      warn "$tool resolves to x86_64; not safe to execute on ARM64."
+    else
+      ok "$tool: $path"
+    fi
+  else
+    warn "$tool is missing."
   fi
 done
 
-if [[ -n "$SDK" ]]; then
-  echo
-  echo "Android SDK detected: $SDK"
-  export ANDROID_HOME="$SDK"
-  export ANDROID_SDK_ROOT="$SDK"
-  [[ -d "$SDK/platforms/android-35" ]] && echo "Android API 35: FOUND" || echo "Android API 35: MISSING"
-  [[ -d "$SDK/build-tools/35.0.0" || -d "$SDK/build-tools/37.0.0" ]] && echo "Android Build Tools: FOUND" || echo "Android Build Tools: MISSING"
-  [[ -x "$SDK/platform-tools/adb" ]] && echo "SDK adb: FOUND" || true
-else
-  echo
-  echo "Android SDK: NOT DETECTED"
-  echo "Set ANDROID_HOME/ANDROID_SDK_ROOT to your installed SDK, then rerun."
+if command -v aapt2 >/dev/null 2>&1; then
+  AAPT2="$(command -v aapt2)"
+  cat > "$HOME/.aimobilestudio-toolchain.env" <<EOF
+export ANDROID_HOME="$SDK"
+export ANDROID_SDK_ROOT="$SDK"
+export JAVA_HOME="$PREFIX"
+export PATH="$PREFIX/bin:\$PATH"
+export AAPT2_OVERRIDE="$AAPT2"
+EOF
+  ok "Environment saved to ~/.aimobilestudio-toolchain.env"
+  ok "Use: source ~/.aimobilestudio-toolchain.env"
+  ok "For Gradle Android builds, pass -Pandroid.aapt2FromMavenOverride=$AAPT2 when supported by the project."
 fi
 
+info "Final toolchain report"
+printf 'Architecture: %s\n' "$(uname -m)"
+printf 'Java: %s\n' "$(java -version 2>&1 | head -n 1)"
+printf 'Gradle: %s\n' "$(gradle --version | grep '^Gradle ' | head -n 1)"
+printf 'SDK root: %s\n' "$SDK"
+[[ -f "$SDK/platforms/android-35/android.jar" ]] && echo "API 35: READY" || echo "API 35: MISSING"
+[[ -x "$PREFIX/bin/aapt2" ]] && echo "Termux aapt2: READY" || echo "Termux aapt2: MISSING"
+[[ -x "$PREFIX/bin/apksigner" ]] && echo "Termux apksigner: READY" || echo "Termux apksigner: MISSING"
 echo
-echo "== Bootstrap finished =="
-echo "This script prepares the Termux host toolchain only."
-echo "AIMobileStudio's in-app BuildController still needs a secure Termux bridge before it can invoke these host tools."
-echo "Do not assume an offline build is ready until JDK, Gradle, API 35, Build Tools, and all Maven artifacts are present."
+echo "Bootstrap completed. This is a toolchain readiness check, not proof that every Android Gradle project builds."
