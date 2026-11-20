@@ -17,7 +17,7 @@ This roadmap defines measurable milestones. “100% professional” is not a tes
 ## M3 — Real on-device build engine
 - [ ] Define supported device ABI and storage/RAM requirements.
 - [ ] Provision compatible JDK, Gradle, Android SDK platform/build-tools and AGP.
-- [ ] Build a toolchain installer that downloads and verifies packages once.
+- [x] Add a Termux ARM64 host-tool bootstrap/doctor script and document required components.\n- [ ] Build a complete toolchain provisioner that downloads and verifies SDK/Gradle/Maven packages once.\n- [ ] Implement and device-test a permissioned bridge from the IDE to Termux (or package a compatible in-app build runtime).
 - [ ] Execute Gradle builds with --offline; never silently fall back to network.
 - [ ] Show complete build output, actionable errors and cancellation.
 - [ ] Verify APK with apksigner and install via Android package installer.
@@ -46,7 +46,7 @@ This roadmap defines measurable milestones. “100% professional” is not a tes
 - [x] Add authorized model discovery and Responses API coding-agent request path; live OAuth/inference still needs device testing.
 - [x] Add workspace-scoped project context, generated-file proposals, path confinement and explicit apply approval.
 - [ ] Add full diff preview, backup restore UI and audit log; current implementation makes backups and requires approval.
-- [x] Add a guarded offline Gradle build controller; it remains inactive until the on-device toolchain is provisioned.
+- [x] Add a guarded offline Gradle build controller; it remains inactive until the on-device toolchain is provisioned.\n- [x] Add Termux ARM64 toolchain bootstrap documentation and host-side checks; IDE-to-Termux execution bridge remains pending.
 - [x] Retain the separate local Ollama provider; embedded local inference is still pending.
 - [ ] Pass all acceptance tests in `docs/CHATGPT_AGENT_DESIGN.md`.
 
