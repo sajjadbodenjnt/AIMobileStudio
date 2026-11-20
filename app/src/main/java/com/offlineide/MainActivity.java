@@ -62,15 +62,14 @@ public class MainActivity extends Activity {
   private void clearImageQueue(){imageQueue.clear();selectedImages.clear();updateImageStatus();}
   private void home(){
     shell("AIMOBILESTUDIO");
-    body.addView(label("Offline-first Android app development studio",16));
+    body.addView(label("ChatGPT-powered Android app development studio",16));
     body.addView(label("Workspace: "+workspace.getAbsolutePath(),11));
     body.addView(action("New Android App Project",this::newProject));
     body.addView(action("Open Workspace",this::files));
     body.addView(action("✨ Create a complete app with ChatGPT",this::createWithChatGPT));
     body.addView(action("ChatGPT Coding Agent",this::chatGPT));
-    body.addView(action("Local AI Assistant",this::ai));
     body.addView(action("APK Build Controller",this::buildInfo));
-    body.addView(label("\nChatGPT-connected mode requires internet and separate authorization. Local AI and a provisioned offline build toolchain are separate modes.",13));
+    body.addView(label("\nChatGPT-connected mode requires internet and account authorization. APK building requires a compatible Android build toolchain.",13));
   }
   private void newProject(){
     EditText input=new EditText(this);input.setHint("App name (letters/numbers)");
@@ -92,13 +91,6 @@ public class MainActivity extends Activity {
     if(all==null||all.length==0)body.addView(label("No projects yet. Create a project first.",14));
     else for(File f:all){if(f.isDirectory()){body.addView(label("📁 "+f.getName(),15));File[] children=f.listFiles();if(children!=null)for(File c:children)if(c.isFile())body.addView(action("    "+c.getName(),()->edit(c)));}
       else body.addView(action(f.getName(),()->edit(f)));}
-    body.addView(action("Home",this::home));
-  }
-  private void ai(){
-    shell("LOCAL AI ASSISTANT");body.addView(label("Local endpoint: 127.0.0.1:11434 (Ollama)",13));
-    EditText prompt=new EditText(this);prompt.setHint("Describe the code you want...");prompt.setTextColor(Color.WHITE);prompt.setMinLines(4);body.addView(prompt);
-    body.addView(action("Ask local model",()->{String q=prompt.getText().toString().trim();if(q.isEmpty())return;status.setText("Connecting to local model...");
-      new Thread(()->{String answer=LocalAI.generate("qwen2.5-coder:3b",q);runOnUiThread(()->new android.app.AlertDialog.Builder(this).setTitle("Local AI result").setMessage(answer).setPositiveButton("Close",null).show());}).start();}));
     body.addView(action("Home",this::home));
   }
   private void createWithChatGPT(){
