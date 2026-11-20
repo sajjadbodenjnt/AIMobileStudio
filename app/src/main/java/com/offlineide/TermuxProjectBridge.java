@@ -57,8 +57,8 @@ public final class TermuxProjectBridge {
     File root = project.getCanonicalFile();
     if (!root.isDirectory() ||
         !(new File(root, "settings.gradle").isFile() || new File(root, "settings.gradle.kts").isFile()) ||
-        !(new File(root, "app/build.gradle").isFile() || new File(root, "app/build.gradle.kts").isFile())) {
-      throw new IOException("Select a complete Android Gradle project with an app module.");
+        !hasAndroidApplicationModule(root, 0)) {
+      throw new IOException("Select a Gradle project containing an Android application module.");
     }
     try (ZipOutputStream zip = new ZipOutputStream(new BufferedOutputStream(destination))) {
       zip.putNextEntry(new ZipEntry(root.getName() + "/")); zip.closeEntry();
@@ -66,6 +66,24 @@ public final class TermuxProjectBridge {
       zip.putNextEntry(new ZipEntry(root.getName() + "/AIMobileStudio-Termux-Build.sh"));
       zip.write(BUILD_SCRIPT.getBytes("UTF-8")); zip.closeEntry(); zip.finish();
     }
+  }
+
+  private static boolean hasAndroidApplicationModule(File dir, int depth) throws IOException {
+    if (depth > 12) return false;
+    File[] children = dir.listFiles();
+    if (children == null) return false;
+    for (File child : children) {
+      String name = child.getName();
+      if (child.isDirectory()) {
+        if (name.equals("build") || name.equals(".gradle") || name.equals(".git") || name.equals(".idea")) continue;
+        if (hasAndroidApplicationModule(child, depth + 1)) return true;
+      } else if (child.isFile() && (name.equals("build.gradle") || name.equals("build.gradle.kts"))) {
+        if (child.length() > 1024 * 1024) continue;
+        String source = new String(java.nio.file.Files.readAllBytes(child.toPath()), "UTF-8");
+        if (source.contains("com.android.application") || source.contains("com.android.tools.build:gradle")) return true;
+      }
+    }
+    return false;
   }
 
   private static void addTree(ZipOutputStream zip, File dir, String prefix, int depth) throws IOException {
