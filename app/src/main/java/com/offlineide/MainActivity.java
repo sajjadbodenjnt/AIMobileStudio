@@ -267,20 +267,23 @@ public class MainActivity extends Activity {
   }
   private void showTermuxInstructions(String projectName){
     String safeName=projectName.replaceAll("[^A-Za-z0-9._-]","_");
-    String base="$HOME/storage/downloads/aimobilestudio-builds/"+safeName;
     String commands=String.join("\n",
       "termux-setup-storage",
       "pkg update -y",
-      "pkg install -y openjdk-17 gradle curl unzip",
-      "export ANDROID_HOME=\"$HOME/lib/android-sdk-9123335\"",
-      "export ANDROID_SDK_ROOT=\"$ANDROID_HOME\"",
-      "mkdir -p \"$HOME/storage/downloads/aimobilestudio-builds\"",
-      "unzip -o \"$HOME/storage/downloads/"+safeName+"-source.zip\" -d \"$HOME/storage/downloads/aimobilestudio-builds\"",
-      "cd \"$HOME/storage/downloads/aimobilestudio-builds/"+safeName+"\"",
+      "pkg install -y unzip",
+      "export ANDROID_HOME=\\"$HOME/lib/android-sdk-9123335\\"",
+      "export ANDROID_SDK_ROOT=\\"$ANDROID_HOME\\"",
+      "mkdir -p \\"$HOME/storage/downloads/aimobilestudio-builds\\"",
+      "unzip -o \\"$HOME/storage/downloads/"+safeName+"-source.zip\\" -d \\"$HOME/storage/downloads/aimobilestudio-builds\\"",
+      "cd \\"$HOME/storage/downloads/aimobilestudio-builds/"+safeName+"\\"",
       "bash AIMobileStudio-Termux-Build.sh");
     new android.app.AlertDialog.Builder(this).setTitle("Build in Termux")
-      .setMessage("Save the ZIP in Downloads, then run these commands in Termux. The SDK path assumes ~/lib/android-sdk-9123335; change ANDROID_HOME if yours differs.\n\n"+commands+"\n\nAfter success, select Import APK built in Termux.")
-      .setPositiveButton("Copy commands",(d,w)->{android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(android.content.ClipData.newPlainText("Termux build commands",commands));})
+      .setMessage("The source ZIP must be saved in the Downloads folder with the suggested filename.\n\nBefore first use, open Termux and enable external commands:\n1. Run: mkdir -p ~/.termux && touch ~/.termux/termux.properties\n2. Add this line: allow-external-apps=true\n3. Run: termux-reload-settings\n4. Grant AI Mobile Studio the 'Run commands in Termux environment' permission in Android App Info.\n\nYour Termux JDK (17 or 21) and Android SDK must already be installed.\n\nManual commands:\n"+commands)
+      .setNeutralButton("Run build in Termux",(d,w)->TermuxRunner.runBuild(this,safeName))
+      .setPositiveButton("Copy manual commands",(d,w)->{
+        android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
+        cm.setPrimaryClip(android.content.ClipData.newPlainText("Termux build commands",commands));
+      })
       .setNegativeButton("Close",null).show();
   }
   private void showError(String title,Exception e){new android.app.AlertDialog.Builder(this).setTitle(title).setMessage(e.getClass().getSimpleName()+": "+e.getMessage()).setPositiveButton("OK",null).show();}
