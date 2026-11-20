@@ -20,7 +20,7 @@ export ANDROID_SDK_ROOT="$ANDROID_HOME"
 bash scripts/install-termux-toolchain.sh
 ```
 
-The script is a preparation/doctor step. It is not proof that a complete offline build is ready.
+The app now provides a Termux handoff: select a project in APK Build Controller, export its ZIP to Downloads, and copy the displayed commands into Termux. The ZIP contains a build script that downloads Gradle 8.9 if needed, uses the detected Android SDK, resolves dependencies online, builds `assembleDebug`, and copies the APK to `~/storage/downloads/AIMobileStudio-Builds/`. In the app, choose **Import APK built in Termux** and select that APK. This requires internet on the first build unless all Gradle/Maven artifacts are already cached.
 
 ## Required components
 
@@ -44,9 +44,9 @@ A genuine offline test must be performed with network access disabled. If Gradle
 
 Termux and AIMobileStudio are separate Android applications. AIMobileStudio cannot simply execute Termux's private binaries or read its private SDK directory. The current in-app BuildController expects an app-private toolchain at `files/toolchain`; the Termux bootstrap above does not populate that directory.
 
-Therefore the remaining integration milestone is a deliberate, permissioned bridge between AIMobileStudio and Termux (or a separately packaged Android-compatible build runtime). Until that bridge is implemented and tested on-device, the in-app Build button must report the toolchain as unavailable rather than claim it can build.
+The bridge is implemented as an explicit SAF export/import workflow. It does not cross the Android app sandbox or execute Termux commands silently; the user runs the exported script in Termux and then selects the APK to import.
 
-## Build pipeline still required
+## Build pipeline and limitations
 
 1. Provision and validate the toolchain.
 2. Resolve/cache Gradle wrapper, AGP and Maven dependencies.
