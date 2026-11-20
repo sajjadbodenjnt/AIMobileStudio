@@ -44,6 +44,7 @@ public class MainActivity extends Activity {
     body.addView(label("Workspace: "+workspace.getAbsolutePath(),11));
     body.addView(action("New Android App Project",this::newProject));
     body.addView(action("Open Workspace",this::files));
+    body.addView(action("✨ Create a complete app with ChatGPT",this::createWithChatGPT));
     body.addView(action("ChatGPT Coding Agent",this::chatGPT));
     body.addView(action("Local AI Assistant",this::ai));
     body.addView(action("APK Build Controller",this::buildInfo));
@@ -77,6 +78,42 @@ public class MainActivity extends Activity {
     body.addView(action("Ask local model",()->{String q=prompt.getText().toString().trim();if(q.isEmpty())return;status.setText("Connecting to local model...");
       new Thread(()->{String answer=LocalAI.generate("qwen2.5-coder:3b",q);runOnUiThread(()->new android.app.AlertDialog.Builder(this).setTitle("Local AI result").setMessage(answer).setPositiveButton("Close",null).show());}).start();}));
     body.addView(action("Home",this::home));
+  }
+  private void createWithChatGPT(){
+    shell("CREATE APP WITH CHATGPT");
+    body.addView(label("Describe the app you want. ChatGPT will generate a complete Android Studio project, then you review every file before it is saved.",14));
+    EditText appName=new EditText(this);appName.setSingleLine(true);appName.setTextColor(Color.WHITE);appName.setHint("App name (example: MyShop)");body.addView(appName);
+    EditText prompt=new EditText(this);prompt.setTextColor(Color.WHITE);prompt.setMinLines(5);prompt.setHint("Describe every feature, screen and design you want. You can write in Bangla or English.");body.addView(prompt);
+    body.addView(action("Generate complete Android app",()->{
+      String rawName=appName.getText().toString().trim();
+      String name=rawName.replaceAll("[^A-Za-z0-9_]","");
+      String instruction=prompt.getText().toString().trim();
+      if(name.isEmpty()||instruction.isEmpty()){status.setText("Enter an app name and describe your app.");return;}
+      try{
+        JSONObject profile=chatAuth.load();
+        if(profile==null||!profile.optBoolean("plan_usage_enabled")){status.setText("Connect ChatGPT and approve plan usage first.");chatGPT();return;}
+        File project=new File(workspace,name);
+        if(project.exists()){status.setText("A project with this name already exists. Choose another name.");return;}
+        if(!project.mkdirs())throw new IOException("Could not create project workspace.");
+        status.setText("ChatGPT is designing and generating your complete app…");
+        String fullRequest="Create a complete, buildable native Android application named "+name+". User requirements: "+instruction+
+          "\\nGenerate every required project file, including settings.gradle, root build.gradle, gradle.properties, app/build.gradle, app/src/main/AndroidManifest.xml, Java Activity source, and all required XML resources. "+
+          "Use Java and Android framework APIs only; avoid AndroidX and third-party libraries unless essential. Use compileSdk 35, minSdk 26, targetSdk 35, Java 17. "+
+          "Implement the requested screens and interactions, polished responsive Material-like styling using framework widgets/drawables, validation, empty/loading/error states, and local persistence where appropriate. "+
+          "Do not leave TODOs, pseudocode, placeholders, or omitted files. Ensure package names and manifest activity names match. Return only files needed for a complete Gradle Android project.";
+        new Thread(()->{try{
+          String raw=new ChatGPTAgent(this).generate(fullRequest,"");
+          JSONObject plan=new JSONObject(raw);
+          runOnUiThread(()->reviewPlan(project,plan));
+        }catch(Exception e){runOnUiThread(()->{deleteTree(project);showError("App generation failed",e);});}}).start();
+      }catch(Exception e){showError("Cannot start app generation",e);}
+    }));
+    body.addView(action("Back",this::home));
+  }
+  private void deleteTree(File file){
+    if(file==null||!file.exists())return;
+    File[] children=file.listFiles();if(children!=null)for(File child:children)deleteTree(child);
+    try{file.delete();}catch(Exception ignored){}
   }
   private void chatGPT(){
     shell("CHATGPT CODING AGENT");
