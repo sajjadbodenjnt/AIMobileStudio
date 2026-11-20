@@ -63,7 +63,7 @@ public final class ChatGPTAuth {
   public JSONObject signIn()throws Exception{
     SharedPreferences p=context.getSharedPreferences(PREF,0);
     String host=p.getString("host_id",null);if(host==null){host="urn:uuid:"+UUID.randomUUID();p.edit().putString("host_id",host).apply();}
-    String state=random(32),nonce=random(32),verifier=random(48);
+    JSONObject previous=load();\n    String registeredClient=previous==null?null:previous.optString("client_id",null);\n    String state=random(32),nonce=random(32),verifier=random(48);
     String challenge=b64(MessageDigest.getInstance("SHA-256").digest(verifier.getBytes(StandardCharsets.US_ASCII)));
     ServerSocket server=new ServerSocket();server.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"),0));
     server.setSoTimeout(180000);int port=server.getLocalPort();
