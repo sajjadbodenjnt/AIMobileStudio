@@ -21,7 +21,7 @@ pkg update -y
 
 # These packages provide Android-host-native tools. Google Linux build-tools executables
 # are x86_64 and must not be blindly executed on an ARM64 Android phone.
-PACKAGES=(openjdk-21 gradle android-tools aapt aapt2 d8 apksigner curl wget unzip zip git)
+PACKAGES=(openjdk-21 gradle android-tools aapt aapt2 aidl d8 apksigner zipalign file curl wget unzip zip git)
 for package in "${PACKAGES[@]}"; do
   if dpkg -s "$package" >/dev/null 2>&1; then
     ok "$package already installed"
