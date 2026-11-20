@@ -11,7 +11,7 @@ if [ ! -f "$PROJECT/settings.gradle" ] && [ ! -f "$PROJECT/settings.gradle.kts" 
 fi
 pkg update -y
 pkg install -y openjdk-17 gradle aapt aapt2 apksigner zipalign
-export JAVA_HOME="$PREFIX/opt/openjdk"
+export JAVA_HOME="$PREFIX/lib/jvm/java-17-openjdk"
 export PATH="$JAVA_HOME/bin:$PATH"
 cd "$PROJECT"
 case "$MODE" in
