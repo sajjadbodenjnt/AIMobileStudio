@@ -7,7 +7,10 @@ import android.graphics.Typeface;
 import android.view.Gravity;
 import android.widget.*;
 import java.io.File;
-import java.nio.file.Files;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 
 public class MainActivity extends Activity {
     private LinearLayout body;
@@ -19,8 +22,27 @@ public class MainActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         workspace = new File(getFilesDir(), "workspace");
-        workspace.mkdirs();
+        if (!workspace.exists()) workspace.mkdirs();
         home();
+    }
+
+    private static void writeText(File file, String value) throws Exception {
+        File parent = file.getParentFile();
+        if (parent != null && !parent.exists()) parent.mkdirs();
+        try (FileOutputStream out = new FileOutputStream(file, false)) {
+            out.write(value.getBytes(StandardCharsets.UTF_8));
+            out.flush();
+        }
+    }
+
+    private static String readText(File file) throws Exception {
+        try (FileInputStream in = new FileInputStream(file);
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int count;
+            while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+            return out.toString("UTF-8");
+        }
     }
 
     private TextView label(String s, int size) {
@@ -66,10 +88,11 @@ public class MainActivity extends Activity {
             .setNegativeButton("Cancel", null).setPositiveButton("Create", (d, w) -> {
                 String name = input.getText().toString().trim().replaceAll("[^A-Za-z0-9_-]", "");
                 if (name.isEmpty()) name = "MyApp";
-                File dir = new File(workspace, name); dir.mkdirs();
+                File dir = new File(workspace, name);
+                if (!dir.exists()) dir.mkdirs();
                 File f = new File(dir, "MainActivity.java");
                 try {
-                    Files.writeString(f.toPath(), "// " + name + "\npublic class MainActivity {\n    // Start coding here\n}\n");
+                    writeText(f, "// " + name + "\npublic class MainActivity {\n    // Start coding here\n}\n");
                     edit(f);
                 } catch (Exception e) { status.setText("ERROR: " + e.getMessage()); }
             }).show();
@@ -80,11 +103,14 @@ public class MainActivity extends Activity {
         editor = new EditText(this); editor.setGravity(Gravity.TOP | Gravity.LEFT);
         editor.setTextSize(13); editor.setTypeface(Typeface.MONOSPACE);
         editor.setTextColor(0xffe3f3e9); editor.setBackgroundColor(0xff14211b);
-        try { editor.setText(Files.readString(file.toPath())); } catch (Exception ignored) {}
+        try { editor.setText(readText(file)); }
+        catch (Exception e) { status.setText("OPEN ERROR: " + e.getMessage()); }
         body.addView(editor, new LinearLayout.LayoutParams(-1, 0, 1));
         body.addView(action("Save", () -> {
-            try { Files.writeString(file.toPath(), editor.getText().toString()); status.setText("SAVED: " + file.getName()); }
-            catch (Exception e) { status.setText("SAVE ERROR: " + e.getMessage()); }
+            try {
+                writeText(file, editor.getText().toString());
+                status.setText("SAVED: " + file.getName());
+            } catch (Exception e) { status.setText("SAVE ERROR: " + e.getMessage()); }
         }));
         body.addView(action("Back", this::files));
     }
