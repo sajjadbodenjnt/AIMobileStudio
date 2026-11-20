@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build and install-test Android APK
 on:
   push:
     branches: [main]
@@ -14,8 +14,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
+      - uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools'
       - name: Install Android SDK platform
@@ -27,16 +26,37 @@ jobs:
         with:
           gradle-version: '8.9'
           arguments: --no-daemon --stacktrace assembleDebug
-      - name: Verify APK
+      - name: Verify APK structure and signatures
         run: |
+          set -euo pipefail
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 5
-      - name: Upload APK
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+          BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
+          echo "$BADGING" | head -n 8
+          echo "$BADGING" | grep -q "package: name='com.sajjad.aimobilestudio'"
+          echo "$BADGING" | grep -q "sdkVersion:'24'"
+          mkdir -p dist
+          cp "$APK" dist/AIMobileStudio-debug.apk
+          sha256sum dist/AIMobileStudio-debug.apk | tee dist/SHA256SUMS.txt
+          stat -c 'APK size: %s bytes' dist/AIMobileStudio-debug.apk
+      - name: Install and launch on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          script: |
+            adb install -r dist/AIMobileStudio-debug.apk
+            adb shell monkey -p com.sajjad.aimobilestudio 1
+            sleep 5
+            adb shell dumpsys activity activities | grep -m 1 com.sajjad.aimobilestudio
+      - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: AIMobileStudio-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: AIMobileStudio-installable-APK
+          path: dist/*
           if-no-files-found: error
           retention-days: 14
