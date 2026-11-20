@@ -279,7 +279,7 @@ public class MainActivity extends Activity {
       "bash AIMobileStudio-Termux-Build.sh");
     new android.app.AlertDialog.Builder(this).setTitle("Build in Termux")
       .setMessage("The source ZIP must be saved in the Downloads folder with the suggested filename.\n\nBefore first use, open Termux and enable external commands:\n1. Run: mkdir -p ~/.termux && touch ~/.termux/termux.properties\n2. Add this line: allow-external-apps=true\n3. Run: termux-reload-settings\n4. Grant AI Mobile Studio the 'Run commands in Termux environment' permission in Android App Info.\n\nYour Termux JDK (17 or 21) and Android SDK must already be installed.\n\nManual commands:\n"+commands)
-      .setNeutralButton("Run build in Termux",(d,w)->TermuxRunner.runBuild(this,safeName))
+      .setNeutralButton("Choose APK/AAB build",(d,w)->new android.app.AlertDialog.Builder(this).setTitle("Select build output").setItems(new String[]{"Debug APK (test install)","Release APK (configure signing first)","Debug AAB (bundle)","Release AAB (configure signing first)"},(dialog,which)->{String[] types={"debug","release","aab","aab-release"};TermuxRunner.runBuild(this,safeName,types[which]);}).show())
       .setPositiveButton("Copy manual commands",(d,w)->{
         android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
         cm.setPrimaryClip(android.content.ClipData.newPlainText("Termux build commands",commands));
