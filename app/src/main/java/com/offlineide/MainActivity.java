@@ -271,11 +271,11 @@ public class MainActivity extends Activity {
       "termux-setup-storage",
       "pkg update -y",
       "pkg install -y unzip",
-      "export ANDROID_HOME=\\"$HOME/lib/android-sdk-9123335\\"",
-      "export ANDROID_SDK_ROOT=\\"$ANDROID_HOME\\"",
-      "mkdir -p \\"$HOME/storage/downloads/aimobilestudio-builds\\"",
-      "unzip -o \\"$HOME/storage/downloads/"+safeName+"-source.zip\\" -d \\"$HOME/storage/downloads/aimobilestudio-builds\\"",
-      "cd \\"$HOME/storage/downloads/aimobilestudio-builds/"+safeName+"\\"",
+      "export ANDROID_HOME=$HOME/lib/android-sdk-9123335",
+      "export ANDROID_SDK_ROOT=$ANDROID_HOME",
+      "mkdir -p $HOME/storage/downloads/aimobilestudio-builds",
+      "unzip -o $HOME/storage/downloads/"+safeName+"-source.zip -d $HOME/storage/downloads/aimobilestudio-builds",
+      "cd $HOME/storage/downloads/aimobilestudio-builds/"+safeName,
       "bash AIMobileStudio-Termux-Build.sh");
     new android.app.AlertDialog.Builder(this).setTitle("Build in Termux")
       .setMessage("The source ZIP must be saved in the Downloads folder with the suggested filename.\n\nBefore first use, open Termux and enable external commands:\n1. Run: mkdir -p ~/.termux && touch ~/.termux/termux.properties\n2. Add this line: allow-external-apps=true\n3. Run: termux-reload-settings\n4. Grant AI Mobile Studio the 'Run commands in Termux environment' permission in Android App Info.\n\nYour Termux JDK (17 or 21) and Android SDK must already be installed.\n\nManual commands:\n"+commands)
