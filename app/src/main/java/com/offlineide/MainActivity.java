@@ -87,7 +87,9 @@ public class MainActivity extends Activity {
   private void clearImageQueue(){imageQueue.clear();selectedImages.clear();updateImageStatus();}
   private void home(){
     shell("  ◈  AI MOBILE STUDIO");
-    TextView account=label(chatAuth.load()!=null && chatAuth.load().optBoolean("plan_usage_enabled") ? "●  ChatGPT Logged-in" : "○  ChatGPT Not connected",12);
+    String accountText="○  ChatGPT Not connected";
+    try { JSONObject profile=chatAuth.load(); if(profile!=null) accountText=profile.optBoolean("plan_usage_enabled") ? "●  ChatGPT Logged-in" : "●  ChatGPT connected • permission pending"; } catch(Exception ignored) {}
+    TextView account=label(accountText,12);
     account.setTextColor(0xff63e6a3); account.setPadding(dp(4),dp(2),0,dp(10)); body.addView(account);
     LinearLayout projectBar=new LinearLayout(this); projectBar.setGravity(Gravity.CENTER_VERTICAL);
     TextView projectTitle=label("▣  My Projects",16); projectBar.addView(projectTitle,new LinearLayout.LayoutParams(0,-2,1));
