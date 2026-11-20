@@ -14,7 +14,7 @@ public final class TermuxProjectBridge {
       "cd \"$ROOT\"\n" +
       "if [[ \"${PREFIX:-}\" != /data/data/com.termux/files/usr ]]; then echo 'Run inside Termux, not proot.' >&2; exit 2; fi\n" +
       "command -v java >/dev/null || { echo 'Install JDK 17: pkg install openjdk-17'; exit 3; }\n" +
-      "java -version 2>&1 | grep -q '17\\.' || { echo 'JDK 17 is required: pkg install openjdk-17'; exit 3; }\n" +
+      "java -version 2>&1 | grep -Eq '"(17|21)(\\.|\\")' || { echo 'JDK 17 is required: pkg install openjdk-17'; exit 3; }\n" +
       "SDK=\"${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}\"\n" +
       "for candidate in \"$HOME/lib/android-sdk-9123335\" \"$HOME/lib/android-sdk\" \"$HOME/Android/Sdk\"; do if [[ -z \"$SDK\" && -d \"$candidate/platforms/android-35\" ]]; then SDK=\"$candidate\"; fi; done\n" +
       "if [[ -z \"$SDK\" || ! -f \"$SDK/platforms/android-35/android.jar\" ]]; then echo 'Android SDK Platform 35 not found. Set ANDROID_HOME.'; exit 4; fi\n" +
