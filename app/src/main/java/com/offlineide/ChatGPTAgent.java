@@ -19,7 +19,7 @@ public final class ChatGPTAgent {
     String s=out.toString("UTF-8");c.disconnect();if(code<200||code>=300)throw new IOException("OpenAI HTTP "+code+": "+s);return s;
   }
   public JSONArray models()throws Exception{
-    JSONObject cred=auth.load();if(cred==null||!cred.optBoolean("plan_usage_enabled"))throw new SecurityException("ChatGPT plan usage permission is not enabled.");
+    JSONObject cred=auth.loadValid();if(cred==null||!cred.optBoolean("plan_usage_enabled"))throw new SecurityException("ChatGPT plan usage permission is not enabled.");
     JSONObject data=new JSONObject(request("https://api.openai.com/v1/models","GET",null,cred.getString("access_token")));
     JSONArray source=data.optJSONArray("models");if(source==null)source=data.optJSONArray("data");
     JSONArray result=new JSONArray();if(source!=null)for(int i=0;i<source.length();i++){JSONObject m=source.optJSONObject(i);if(m==null)continue;
@@ -27,7 +27,7 @@ public final class ChatGPTAgent {
     return result;
   }
   public String generate(String instruction,String projectSummary)throws Exception{
-    JSONObject cred=auth.load();if(cred==null||!cred.optBoolean("plan_usage_enabled"))throw new SecurityException("Sign in and enable ChatGPT plan usage first.");
+    JSONObject cred=auth.loadValid();if(cred==null||!cred.optBoolean("plan_usage_enabled"))throw new SecurityException("Sign in and enable ChatGPT plan usage first.");
     JSONArray available=models();if(available.length()==0)throw new IOException("No models available for this account.");
     String model=available.getJSONObject(0).getString("id");
     String prompt="You are the coding agent inside AIMobileStudio. Return ONLY valid JSON with schema {\"summary\":string,\"files\":[{\"path\":string,\"content\":string}]}. "+
