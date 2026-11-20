@@ -7,7 +7,7 @@ import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import android.net.Uri;
-import android.util.Base64;
+import android.util.Base64;\nimport android.graphics.Bitmap;\nimport android.graphics.BitmapFactory;
 
 /**
  * ChatGPT plan-usage client for a locally running open-source app.
@@ -148,16 +148,30 @@ public final class ChatGPTAgent {
     JSONArray content = new JSONArray();
     content.put(new JSONObject().put("type","input_text").put("text",prompt));
     if(images!=null) for(Uri uri:images) {
-      String mime=context.getContentResolver().getType(uri);
-      if(mime==null||!mime.startsWith("image/")) mime="image/jpeg";
-      byte[] bytes;
-      try(InputStream in=context.getContentResolver().openInputStream(uri);ByteArrayOutputStream out=new ByteArrayOutputStream()){
-        if(in==null)throw new IOException("Cannot open selected image.");
-        byte[] buffer=new byte[8192];int n;
-        while((n=in.read(buffer))!=-1){out.write(buffer,0,n);}
-        bytes=out.toByteArray();
+      // Decode and downscale one image at a time to avoid loading the entire queue into RAM.
+      BitmapFactory.Options bounds = new BitmapFactory.Options();
+      bounds.inJustDecodeBounds = true;
+      try(InputStream in=context.getContentResolver().openInputStream(uri)) {
+        if(in==null)throw new IOException("Cannot open selected image: "+uri);
+        BitmapFactory.decodeStream(in,null,bounds);
       }
-      String dataUrl="data:"+mime+";base64,"+Base64.encodeToString(bytes,Base64.NO_WRAP);
+      if(bounds.outWidth<=0||bounds.outHeight<=0)throw new IOException("Unsupported or corrupt image: "+uri);
+      int sample=1;
+      while(Math.max(bounds.outWidth/sample,bounds.outHeight/sample)>2048) sample*=2;
+      BitmapFactory.Options options=new BitmapFactory.Options();
+      options.inSampleSize=sample;
+      Bitmap bitmap;
+      try(InputStream in=context.getContentResolver().openInputStream(uri)) {
+        if(in==null)throw new IOException("Cannot reopen selected image: "+uri);
+        bitmap=BitmapFactory.decodeStream(in,null,options);
+      }
+      if(bitmap==null)throw new IOException("Could not decode selected image: "+uri);
+      byte[] bytes;
+      try(ByteArrayOutputStream out=new ByteArrayOutputStream()) {
+        bitmap.compress(Bitmap.CompressFormat.JPEG,82,out);
+        bytes=out.toByteArray();
+      } finally { bitmap.recycle(); }
+      String dataUrl="data:image/jpeg;base64,"+Base64.encodeToString(bytes,Base64.NO_WRAP);
       content.put(new JSONObject().put("type","input_image").put("image_url",dataUrl).put("detail","auto"));
     }
     return content;
