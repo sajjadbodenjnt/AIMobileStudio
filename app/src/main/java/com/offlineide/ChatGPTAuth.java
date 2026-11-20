@@ -76,12 +76,15 @@ public final class ChatGPTAuth {
   public JSONObject signIn()throws Exception{
     SharedPreferences p=context.getSharedPreferences(PREF,0);
     String host=p.getString("host_id",null);if(host==null){host="urn:uuid:"+UUID.randomUUID();p.edit().putString("host_id",host).apply();}
-    JSONObject previous=load();\n    String registeredClient=previous==null?null:previous.optString("client_id",null);\n    String state=random(32),nonce=random(32),verifier=random(48);
+    JSONObject previous=load();
+    String registeredClient=previous==null?null:previous.optString("client_id",null);
+    String state=random(32),nonce=random(32),verifier=random(48);
     String challenge=b64(MessageDigest.getInstance("SHA-256").digest(verifier.getBytes(StandardCharsets.US_ASCII)));
     ServerSocket server=new ServerSocket();server.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"),0));
     server.setSoTimeout(180000);int port=server.getLocalPort();
     String redirect="http://127.0.0.1:"+port+"/auth/callback";
-    String query="client_id=dynamic_agent_client&agent_name_hint="+enc("AIMobileStudio")+
+    String query="client_id="+enc(registeredClient==null?"dynamic_agent_client":registeredClient)+
+      (registeredClient==null?"&agent_name_hint="+enc("AIMobileStudio"):"&id_token_hint="+enc(previous.optString("id_token","")))+
       "&ext_agent_host_id="+enc(host)+"&response_type=code&redirect_uri="+enc(redirect)+
       "&scope="+enc("openid profile email offline_access resource.invoke chatgpt.tokens.use.direct")+
       "&resource="+enc(RESOURCE)+"&state="+enc(state)+"&nonce="+enc(nonce)+
@@ -99,6 +102,7 @@ public final class ChatGPTAuth {
       if(!state.equals(params.get("state")))throw new SecurityException("OAuth state mismatch");
       if(params.containsKey("error"))throw new IOException("Authorization denied: "+params.get("error"));
       String code=params.get("code"),client=params.get("client_id");
+      if(client==null)client=registeredClient;
       if(code==null||client==null||!client.startsWith("oaiapp_"))throw new IOException("Registration incomplete: issued client_id missing");
       String form="grant_type=authorization_code&client_id="+enc(client)+"&code="+enc(code)+
         "&code_verifier="+enc(verifier)+"&redirect_uri="+enc(redirect)+"&resource="+enc(RESOURCE);
