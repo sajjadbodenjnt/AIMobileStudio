@@ -2,6 +2,7 @@ package com.offlineide;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.util.Base64;
@@ -10,6 +11,7 @@ import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
+import java.math.BigInteger;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.*;
 import java.util.*;
