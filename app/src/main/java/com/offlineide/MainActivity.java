@@ -266,9 +266,20 @@ public class MainActivity extends Activity {
     body.addView(action("Home",this::home));
   }
   private void showTermuxInstructions(String projectName){
-    String commands="termux-setup-storage\npkg update -y\npkg install -y openjdk-17 gradle curl unzip\nexport ANDROID_HOME=\"$HOME/lib/android-sdk-9123335\\"\nexport ANDROID_SDK_ROOT=\"$ANDROID_HOME\\"\nmkdir -p ~/storage/downloads/aimobilestudio-builds\nunzip -o ~/storage/downloads/"+projectName+"-source.zip -d ~/storage/downloads/aimobilestudio-builds\ncd ~/storage/downloads/aimobilestudio-builds/"+projectName+"\nbash AIMobileStudio-Termux-Build.sh";
+    String safeName=projectName.replaceAll("[^A-Za-z0-9._-]","_");
+    String base="$HOME/storage/downloads/aimobilestudio-builds/"+safeName;
+    String commands=String.join("\n",
+      "termux-setup-storage",
+      "pkg update -y",
+      "pkg install -y openjdk-17 gradle curl unzip",
+      "export ANDROID_HOME=\"$HOME/lib/android-sdk-9123335\"",
+      "export ANDROID_SDK_ROOT=\"$ANDROID_HOME\"",
+      "mkdir -p \"$HOME/storage/downloads/aimobilestudio-builds\"",
+      "unzip -o \"$HOME/storage/downloads/"+safeName+"-source.zip\" -d \"$HOME/storage/downloads/aimobilestudio-builds\"",
+      "cd \"$HOME/storage/downloads/aimobilestudio-builds/"+safeName+"\"",
+      "bash AIMobileStudio-Termux-Build.sh");
     new android.app.AlertDialog.Builder(this).setTitle("Build in Termux")
-      .setMessage("Save the ZIP specifically in your phone's Downloads folder, then run these commands in Termux. The setup installs Java, Gradle and archive utilities. ANDROID_HOME below assumes your SDK is at ~/lib/android-sdk-9123335; edit that path if your SDK is elsewhere.\n\n"+commands+"\n\nAfter success, select Import APK built in Termux.")
+      .setMessage("Save the ZIP in Downloads, then run these commands in Termux. The SDK path assumes ~/lib/android-sdk-9123335; change ANDROID_HOME if yours differs.\n\n"+commands+"\n\nAfter success, select Import APK built in Termux.")
       .setPositiveButton("Copy commands",(d,w)->{android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(android.content.ClipData.newPlainText("Termux build commands",commands));})
       .setNegativeButton("Close",null).show();
   }
