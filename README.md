@@ -1,47 +1,52 @@
-# AIMobileStudio — Offline Android App Builder
+# AI Mobile Studio
 
-A native Android IDE project designed to grow into an on-device, offline-first app development environment.
+AI Mobile Studio is a native Android app-building workspace. It combines a ChatGPT-connected coding agent with a local Android project workspace and a guarded Gradle build controller.
 
-## What works in this revision
+## Current implementation
 
-- Native Android IDE shell and private project workspace.
-- Basic source editor with UTF-8 open/save.
-- **New Android App Project** creates a real Java + Gradle Android project (settings, root/app Gradle files, manifest, Java activity and README).
-- Local AI connector targeting the loopback Ollama API (default model: qwen2.5-coder:3b).
-- GitHub Actions debug APK build for testing the IDE itself.
+- Native Android application (Java, Android SDK).
+- ChatGPT sign-in flow using OAuth/PKCE and encrypted Android Keystore credential storage.
+- ChatGPT plan-usage permission check before calling the Responses API. This is not access to the user's private ChatGPT chat history.
+- AI-generated project files are previewed and require user approval before being written.
+- Project workspace path validation and backups for replaced files.
+- Local project creation and source editing.
+- Offline build controller invokes only the app-private Gradle executable, checks the Android 35 SDK platform, drains build logs safely, enforces a build timeout, and verifies that a non-empty APK was produced.
+- GitHub Actions workflow builds the AI Mobile Studio app itself and uploads its debug APK as a workflow artifact.
 
-## Important: honest capability status
+## Important capability boundaries
 
-This is an actively developed foundation, **not yet a complete professional offline Android Studio replacement**. The IDE APK compiles successfully in CI, but that does not mean generated apps can already be built inside the IDE. The current app does not yet bundle or execute the Android SDK, Gradle distribution, Kotlin compiler, a full APK signing pipeline, or an embedded local LLM runtime.
+This repository is an actively developed builder, not yet a verified one-click professional APK factory.
 
-## Offline-first target architecture
+The current Android app does **not** yet contain a complete app-private Gradle/JDK/Android SDK toolchain. The offline build controller reports missing prerequisites until that toolchain is provisioned. The Termux bootstrap script prepares Termux; it does not automatically grant this Android app access to Termux's private files.
 
-1. **Project authoring:** project templates, file explorer, editor, syntax highlighting, diagnostics, UI preview and asset manager.
-2. **On-device build engine:** a compatible JDK, Gradle distribution, Android SDK platform/build-tools, Android Gradle Plugin and every Maven artifact must be installed/cached on the device. The build runner must invoke Gradle in offline mode and clearly report missing components.
-3. **APK pipeline:** compile, package, align, sign with a user-owned keystore, verify signature, then offer Android's package installer.
-4. **Local AI:** integrate a local inference runtime (for example llama.cpp through JNI) and a user-selected model stored on-device. No cloud endpoint is required. The current Ollama connector is only an optional development bridge.
-5. **Quality and safety:** build logs, lint, tests, crash-safe project writes, backups, dependency/license inventory and reproducible builds.
+The GitHub Actions workflow currently builds **AI Mobile Studio itself**. It does not yet accept arbitrary projects generated on the phone, build them remotely, and return their APK to the app. That feature requires a secure project-upload/dispatch channel and authenticated artifact retrieval.
 
-## Build the IDE
+A debug APK produced by CI is for testing. A production release requires a user-controlled signing key and a release-signing flow.
 
-Use JDK 17, Android SDK Platform 35, Android Gradle Plugin 8.7.3 and Gradle 8.9. The GitHub Actions workflow builds the debug APK and uploads it as an artifact. First dependency resolution requires internet; after all SDK and Gradle/Maven artifacts are cached, Gradle can run with --offline.
+## Build AI Mobile Studio
 
-## Prepare the Termux ARM64 toolchain\n\nRun `bash scripts/install-termux-toolchain.sh` inside Termux. It checks/installs available host tools and detects an existing Android SDK. Read [Termux Toolchain Setup](docs/TERMUX_TOOLCHAIN.md). This prepares the Termux environment only; the in-app Build Controller still needs a secure Termux bridge because Android apps cannot directly execute another app's private binaries.\n\n## Build a generated project
+Requirements: JDK 17, Android SDK Platform 35, Android Build Tools 35.0.0, Gradle 8.9.
 
-A generated project is a standard Android Gradle project. It needs JDK 17, Android SDK Platform 35, Build Tools and the matching Gradle/Android Gradle Plugin dependencies. After those are cached, run:
-
-    gradle --offline assembleDebug
+    gradle --no-daemon clean assembleDebug
 
 The APK is produced at:
 
     app/build/outputs/apk/debug/app-debug.apk
 
-The current IDE app generates this project but does **not** yet run that build command itself.
+GitHub Actions uploads the same APK as `aimobilestudio-debug-apk`.
 
-## Local AI
+## ChatGPT connection
 
-The optional connector calls only http://127.0.0.1:11434/api/generate. A local Ollama server and downloaded model must already be running. This is not yet an embedded model runtime; the future offline target is an in-app local inference engine.
+Use the in-app **Continue with ChatGPT** action. The user must approve the requested OAuth scopes and must be eligible for direct ChatGPT plan usage under OpenAI's current rules. If the required plan-usage permission is not granted, AI generation remains disabled. The app does not scrape browser cookies or read private ChatGPT conversations.
 
-## Compatibility
+## Termux
 
-The IDE currently targets Android API 26+ and uses Java. Generated projects target minSdk 24 and compileSdk 35.
+The optional script `scripts/install-termux-toolchain.sh` prepares a Termux-side toolchain. See [Termux Toolchain Setup](docs/TERMUX_TOOLCHAIN.md). Android app sandbox isolation means a dedicated, explicit bridge is still required before the app can invoke Termux binaries.
+
+## Security notes
+
+- Credentials are encrypted using Android Keystore.
+- Generated file paths are constrained to the selected project workspace.
+- Existing files are backed up before replacement.
+- Builds require explicit user approval.
+- Never commit OAuth tokens, API keys, signing keystores, or passwords.
