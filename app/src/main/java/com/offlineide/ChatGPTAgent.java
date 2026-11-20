@@ -5,6 +5,9 @@ import org.json.*;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import android.net.Uri;
+import android.util.Base64;
 
 /**
  * ChatGPT plan-usage client for a locally running open-source app.
@@ -13,8 +16,9 @@ import java.nio.charset.StandardCharsets;
 public final class ChatGPTAgent {
   private static final String API = "https://api.openai.com/v1";
   private final ChatGPTAuth auth;
+  private final Context context;
 
-  public ChatGPTAgent(Context context) { auth = new ChatGPTAuth(context); }
+  public ChatGPTAgent(Context context) { this.context=context.getApplicationContext(); auth = new ChatGPTAuth(context); }
 
   private JSONObject credentials() throws Exception {
     JSONObject cred = auth.loadValid();
@@ -52,7 +56,9 @@ public final class ChatGPTAgent {
     return result;
   }
 
-  public String generate(String instruction, String projectSummary) throws Exception {
+  public String generate(String instruction, String projectSummary) throws Exception { return generate(instruction, projectSummary, null); }
+
+  public String generate(String instruction, String projectSummary, List<Uri> images) throws Exception {
     JSONObject cred = credentials();
     JSONArray available = models();
     if (available.length() == 0) throw new IOException("No models are available for this ChatGPT account.");
@@ -78,7 +84,7 @@ public final class ChatGPTAgent {
       .put("stream", true)
       .put("input", new JSONArray().put(new JSONObject()
         .put("role", "user")
-        .put("content", prompt)));
+        .put("content", buildContent(prompt, images))));
 
     HttpURLConnection c = (HttpURLConnection) new URL(API + "/responses").openConnection();
     c.setRequestMethod("POST");
@@ -136,6 +142,25 @@ public final class ChatGPTAgent {
     else if (result.startsWith("```")) result = result.substring(3).trim();
     if (result.endsWith("```")) result = result.substring(0, result.length() - 3).trim();
     return result;
+  }
+
+  private JSONArray buildContent(String prompt, List<Uri> images) throws Exception {
+    JSONArray content = new JSONArray();
+    content.put(new JSONObject().put("type","input_text").put("text",prompt));
+    if(images!=null) for(Uri uri:images) {
+      String mime=context.getContentResolver().getType(uri);
+      if(mime==null||!mime.startsWith("image/")) mime="image/jpeg";
+      byte[] bytes;
+      try(InputStream in=context.getContentResolver().openInputStream(uri);ByteArrayOutputStream out=new ByteArrayOutputStream()){
+        if(in==null)throw new IOException("Cannot open selected image.");
+        byte[] buffer=new byte[8192];int n;
+        while((n=in.read(buffer))!=-1){out.write(buffer,0,n);if(out.size()>15*1024*1024)throw new IOException("One image exceeds the 15 MB app safety limit. Select a smaller image.");}
+        bytes=out.toByteArray();
+      }
+      String dataUrl="data:"+mime+";base64,"+Base64.encodeToString(bytes,Base64.NO_WRAP);
+      content.put(new JSONObject().put("type","input_image").put("image_url",dataUrl).put("detail","auto"));
+    }
+    return content;
   }
 
   private static String readAll(InputStream in) throws IOException {
