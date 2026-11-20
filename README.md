@@ -13,7 +13,7 @@ Native Android IDE foundation for building Java/Kotlin Android apps on an Androi
 This is the first working foundation, not yet a complete on-device IDE. The full Android SDK/Gradle build runner, Kotlin compilation, syntax highlighting, APK signing/install pipeline, and bundled llama.cpp runtime/model are Phase 2+ tasks.
 
 ## Build
-Open in Android Studio with JDK 17, Android SDK Platform 35, Android Gradle Plugin 8.7.3 and Gradle 8.9+. First dependency resolution requires network access; after dependencies and SDK components are cached, builds can run offline.
+Open in Android Studio with JDK 17, Android SDK Platform 35, Android Gradle Plugin 8.7.3 and Gradle 8.9+ (minimum Android API 26). First dependency resolution requires network access; after dependencies and SDK components are cached, builds can run offline.
 
 ## Local AI
 Install and download an Ollama model once, then run Ollama locally. Default model: qwen2.5-coder:3b. The app calls only the loopback endpoint and does not use a cloud AI API.
