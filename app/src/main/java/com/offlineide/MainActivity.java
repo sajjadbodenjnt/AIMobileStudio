@@ -266,7 +266,7 @@ public class MainActivity extends Activity {
     body.addView(action("Home",this::home));
   }
   private void showTermuxInstructions(String projectName){
-    String commands="termux-setup-storage\npkg update -y\npkg install -y openjdk-17 gradle curl unzip\nexport ANDROID_HOME=\\"$HOME/lib/android-sdk-9123335\\"\nexport ANDROID_SDK_ROOT=\\"$ANDROID_HOME\\"\nmkdir -p ~/storage/downloads/aimobilestudio-builds\nunzip -o ~/storage/downloads/"+projectName+"-source.zip -d ~/storage/downloads/aimobilestudio-builds\ncd ~/storage/downloads/aimobilestudio-builds/"+projectName+"\nbash AIMobileStudio-Termux-Build.sh";
+    String commands="termux-setup-storage\npkg update -y\npkg install -y openjdk-17 gradle curl unzip\nexport ANDROID_HOME=\"$HOME/lib/android-sdk-9123335\\"\nexport ANDROID_SDK_ROOT=\"$ANDROID_HOME\\"\nmkdir -p ~/storage/downloads/aimobilestudio-builds\nunzip -o ~/storage/downloads/"+projectName+"-source.zip -d ~/storage/downloads/aimobilestudio-builds\ncd ~/storage/downloads/aimobilestudio-builds/"+projectName+"\nbash AIMobileStudio-Termux-Build.sh";
     new android.app.AlertDialog.Builder(this).setTitle("Build in Termux")
       .setMessage("Save the ZIP specifically in your phone's Downloads folder, then run these commands in Termux. The setup installs Java, Gradle and archive utilities. ANDROID_HOME below assumes your SDK is at ~/lib/android-sdk-9123335; edit that path if your SDK is elsewhere.\n\n"+commands+"\n\nAfter success, select Import APK built in Termux.")
       .setPositiveButton("Copy commands",(d,w)->{android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(android.content.ClipData.newPlainText("Termux build commands",commands));})
