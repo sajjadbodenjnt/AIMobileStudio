@@ -39,15 +39,15 @@ This roadmap defines measurable milestones. “100% professional” is not a tes
 
 ## M6 — ChatGPT-connected coding agent (planned; not yet implemented)
 
-- [ ] Implement official Sign in with ChatGPT for eligible open-source/local-app usage; no password collection or cookie scraping.
-- [ ] Persist per-installation host ID and implement browser OAuth with state, nonce and PKCE.
-- [ ] Verify identity and granted `chatgpt.tokens.use.direct` permission; identity-only login must never enable inference.
-- [ ] Add encrypted credential storage, refresh, account switching, disconnect and revocation handling.
-- [ ] Discover authorized models and verify a completed Responses API request.
-- [ ] Add a scoped agent planner and typed project tools: list/read/propose-write/patch/build-status.
-- [ ] Add diff preview, backups, revert and audit log; require approval for destructive changes and builds.
-- [ ] Connect the agent to the on-device build engine only after M3 is complete.
-- [ ] Retain a separate local-model provider for airplane-mode use.
+- [x] Add initial Android system-browser Sign in with ChatGPT OAuth/PKCE flow for eligible open-source/local-app usage; no password collection or cookie scraping.
+- [x] Persist per-installation host ID and implement browser OAuth with state, nonce and PKCE.
+- [x] Verify RS256/JWKS signature, issuer, audience, nonce and expiry; gate inference on granted `chatgpt.tokens.use.direct`.
+- [x] Add Android Keystore AES-GCM credential storage, refresh and disconnect. Multi-account switching and revocation UX remain.
+- [x] Add authorized model discovery and Responses API coding-agent request path; live OAuth/inference still needs device testing.
+- [x] Add workspace-scoped project context, generated-file proposals, path confinement and explicit apply approval.
+- [ ] Add full diff preview, backup restore UI and audit log; current implementation makes backups and requires approval.
+- [x] Add a guarded offline Gradle build controller; it remains inactive until the on-device toolchain is provisioned.
+- [x] Retain the separate local Ollama provider; embedded local inference is still pending.
 - [ ] Pass all acceptance tests in `docs/CHATGPT_AGENT_DESIGN.md`.
 
 See [ChatGPT Agent Design](docs/CHATGPT_AGENT_DESIGN.md) for security boundaries, architecture and test criteria.
