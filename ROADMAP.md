@@ -1,61 +1,54 @@
-# Professional Offline IDE — Engineering Roadmap
+# AI Mobile Studio — Engineering Roadmap
 
-This roadmap defines measurable milestones. “100% professional” is not a testable engineering claim, so each milestone must be proven by builds, tests and offline verification.
+This roadmap tracks verifiable capabilities. “100% professional” is not a testable guarantee; every milestone must be proven by builds, tests and real-device validation.
 
-## M1 — Native project generation (in progress)
+## M1 — Native project generation
 - [x] Generate a standard Java Android Gradle project.
 - [x] Create manifest, app module, Gradle configuration and starter Activity.
-- [ ] Add Kotlin project template and resource/layout templates.
+- [ ] Add Kotlin and reusable Android resource/layout templates.
 - [ ] Add recursive project explorer, rename/delete and safe file operations.
 
-## M2 — Editor experience
+## M2 — ChatGPT-powered app creation
+- [x] Official system-browser OAuth/PKCE sign-in flow for eligible ChatGPT plan usage.
+- [x] Encrypted Android Keystore credential storage and permission gating.
+- [x] Responses API code-generation path and authorized model discovery.
+- [x] Bengali/English app instructions and reference-image queue.
+- [x] Preview generated file proposals and require approval before applying.
+- [ ] Add durable, resumable image batches with per-batch summaries and retry.
+- [ ] Add full diff preview, backup restore UI, audit log and safe rollback.
+- [ ] Device-test OAuth, image uploads, long generations, cancellation and token refresh.
+
+## M3 — Professional editor
 - [ ] Syntax highlighting, line numbers, tabs, search/replace and undo/redo.
-- [ ] Diagnostics panel and Java/Kotlin language-server integration where feasible.
-- [ ] XML layout editor, asset manager and live preview.
+- [ ] Diagnostics panel and Java/Kotlin language tooling where feasible.
+- [ ] XML/resource editor, asset manager and UI preview.
 - [ ] Project import/export using Android Storage Access Framework.
 
-## M3 — Real on-device build engine
-- [ ] Define supported device ABI and storage/RAM requirements.
-- [ ] Provision compatible JDK, Gradle, Android SDK platform/build-tools and AGP.
-- [ ] Build a toolchain installer that downloads and verifies packages once.
-- [ ] Execute Gradle builds with --offline; never silently fall back to network.
-- [ ] Show complete build output, actionable errors and cancellation.
-- [ ] Verify APK with apksigner and install via Android package installer.
+## M4 — Real Android build pipeline
+- [x] Add guarded Gradle build controller with explicit approval and offline-only execution.
+- [x] Add Termux ARM64 host-tool bootstrap and diagnostics documentation.
+- [ ] Choose and implement a supported build runtime: verified app-private toolchain or permissioned Termux bridge.
+- [ ] Provision compatible JDK, Gradle, Android SDK platform/build-tools and Maven/Gradle dependencies.
+- [ ] Add verified downloads, checksums, resumable provisioning and storage estimates.
+- [ ] Run generated projects through Gradle and show live logs, progress, cancellation and actionable errors.
+- [ ] Verify APK with apksigner and install through Android Package Installer.
+- [ ] Add user-owned keystore setup, release APK and AAB export.
 
-## M4 — Embedded offline AI
-- [ ] Select and document a redistributable code model and license.
-- [ ] Integrate llama.cpp or another Android-compatible local inference runtime.
-- [ ] Add model download/import, checksum verification, storage management and model settings.
-- [ ] Stream generation, context budgeting, code patch review and explicit apply/revert.
-- [ ] Test model inference in airplane mode.
-
-## M5 — Professional quality gates
-- [ ] Automated unit/instrumentation tests.
-- [ ] Lint, dependency/license report and secure-keystore handling.
+## M5 — Quality and security
+- [ ] Automated unit and instrumentation tests.
+- [ ] Lint, dependency/license report and secure credential handling.
 - [ ] Crash recovery, autosave, project backup/restore.
-- [ ] Reproducible release build and install test on real Android devices.
-- [ ] End-to-end airplane-mode test: create → edit → AI assist → build → sign → install.
+- [ ] Build, install and smoke-test generated apps on real Android devices.
+- [ ] Validate permissions, network security, data storage and accessibility.
+- [ ] End-to-end acceptance: prompt → project → review → build → sign → install.
 
+## Explicit product decisions
+- ChatGPT is the only AI provider. Do not add Ollama, local models or another AI backend.
+- ChatGPT generation requires internet, user authorization and eligibility under the applicable OpenAI service rules.
+- Local project files and the Android build process may operate offline only after all required toolchain/dependency packages are provisioned.
+- No app-imposed image-count limit is a promise of unlimited provider usage; request size, memory, network and service limits still apply.
+- CI builds of AI Mobile Studio itself do not prove that arbitrary generated projects can be built on-device.
 
-## M6 — ChatGPT-connected coding agent (planned; not yet implemented)
+## Current verified boundary
 
-- [ ] Implement official Sign in with ChatGPT for eligible open-source/local-app usage; no password collection or cookie scraping.
-- [ ] Persist per-installation host ID and implement browser OAuth with state, nonce and PKCE.
-- [ ] Verify identity and granted `chatgpt.tokens.use.direct` permission; identity-only login must never enable inference.
-- [ ] Add encrypted credential storage, refresh, account switching, disconnect and revocation handling.
-- [ ] Discover authorized models and verify a completed Responses API request.
-- [ ] Add a scoped agent planner and typed project tools: list/read/propose-write/patch/build-status.
-- [ ] Add diff preview, backups, revert and audit log; require approval for destructive changes and builds.
-- [ ] Connect the agent to the on-device build engine only after M3 is complete.
-- [ ] Retain a separate local-model provider for airplane-mode use.
-- [ ] Pass all acceptance tests in `docs/CHATGPT_AGENT_DESIGN.md`.
-
-See [ChatGPT Agent Design](docs/CHATGPT_AGENT_DESIGN.md) for security boundaries, architecture and test criteria.
-
-## Offline definition
-
-After a one-time provisioning step, all editing, AI inference, dependency resolution, compilation, packaging, signing and installation must work with network access disabled. First-time downloads cannot be honestly described as offline. The installer must show which toolchain/model packages are missing and their storage footprint.
-
-## Current limitation
-
-The repository currently has a native Java shell, a basic editor, an Ollama loopback connector and the first Android project generator. It does not yet contain M2–M5. A successful CI build proves only that the IDE source compiles; it does not prove that the on-device build engine or embedded AI works.
+The app contains a native Android shell, ChatGPT OAuth/API integration, project generation proposals, workspace safeguards, a persistent reference-image queue and a guarded build controller. The app-private Android build toolchain is not yet provisioned, and the Termux bootstrap does not itself bridge Termux's private files into the app sandbox. The generated-project build, signing, installation and end-to-end workflows remain unverified.
