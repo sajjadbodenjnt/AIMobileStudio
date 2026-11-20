@@ -19,6 +19,9 @@ public class MainActivity extends Activity {
   private File workspace;
   private ChatGPTAuth chatAuth;
   private static final int PICK_IMAGES = 4107;
+  private static final int EXPORT_PROJECT_ZIP = 4110;
+  private static final int IMPORT_BUILT_APK = 4111;
+  private File pendingExportProject;
   private final ArrayList<Uri> selectedImages = new ArrayList<>();
   private ImageQueueStore imageQueue;
   private TextView imageStatus;
@@ -44,7 +47,29 @@ public class MainActivity extends Activity {
   }
   @Override protected void onActivityResult(int requestCode,int resultCode,android.content.Intent data){
     super.onActivityResult(requestCode,resultCode,data);
-    if(requestCode!=PICK_IMAGES||resultCode!=RESULT_OK||data==null)return;
+    if(resultCode!=RESULT_OK||data==null)return;
+    if(requestCode==EXPORT_PROJECT_ZIP){
+      if(pendingExportProject==null||data.getData()==null)return;
+      Uri destination=data.getData();
+      new Thread(()->{try(OutputStream out=getContentResolver().openOutputStream(destination,"w")){
+        if(out==null)throw new IOException("Cannot open selected destination.");
+        TermuxProjectBridge.exportZip(pendingExportProject,out);
+        runOnUiThread(()->showTermuxInstructions(pendingExportProject.getName()));
+      }catch(Exception e){runOnUiThread(()->showError("Project export failed",e));}}).start();
+      return;
+    }
+    if(requestCode==IMPORT_BUILT_APK){
+      Uri source=data.getData();if(source==null)return;
+      new Thread(()->{try(InputStream in=getContentResolver().openInputStream(source)){
+        if(in==null)throw new IOException("Cannot read selected APK.");
+        File dir=new File(getFilesDir(),"imported-apks");if(!dir.exists())dir.mkdirs();
+        File apk=new File(dir,"termux-build-"+System.currentTimeMillis()+".apk");
+        try(FileOutputStream out=new FileOutputStream(apk)){byte[] buf=new byte[8192];int n;while((n=in.read(buf))!=-1)out.write(buf,0,n);}
+        runOnUiThread(()->{try{ApkInstaller.install(this,apk);}catch(Exception e){showError("APK installation failed",e);}});
+      }catch(Exception e){runOnUiThread(()->showError("APK import failed",e));}}).start();
+      return;
+    }
+    if(requestCode!=PICK_IMAGES)return;
     ArrayList<Uri> added=new ArrayList<>();
     if(data.getClipData()!=null){android.content.ClipData clip=data.getClipData();for(int i=0;i<clip.getItemCount();i++){Uri u=clip.getItemAt(i).getUri();if(u!=null)added.add(u);}}
     else if(data.getData()!=null)added.add(data.getData());
@@ -214,7 +239,21 @@ public class MainActivity extends Activity {
   }
   private void buildInfo(){
     shell("APK BUILD CONTROLLER");BuildController controller=new BuildController(this);body.addView(label(controller.status(),13));
-    body.addView(label("\nBuild is deliberately disabled until a compatible offline Gradle + Android SDK toolchain is provisioned inside app-private storage. It never executes arbitrary shell commands.",12));
+    body.addView(label("\nBuild through the permissioned Termux bridge: export the selected project, run Gradle in Termux, then import the resulting APK.",12));
+    body.addView(action("Build project with Termux (export ZIP)",()->{
+      File[] ps=projects();if(ps.length==0){status.setText("No project found.");return;}
+      chooseProject(ps,project->{pendingExportProject=project;
+        android.content.Intent i=new android.content.Intent(android.content.Intent.ACTION_CREATE_DOCUMENT);
+        i.addCategory(android.content.Intent.CATEGORY_OPENABLE);i.setType("application/zip");
+        i.putExtra(android.content.Intent.EXTRA_TITLE,project.getName()+"-source.zip");
+        startActivityForResult(i,EXPORT_PROJECT_ZIP);
+      });
+    }));
+    body.addView(action("Import APK built in Termux",()->{
+      android.content.Intent i=new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+      i.addCategory(android.content.Intent.CATEGORY_OPENABLE);i.setType("application/vnd.android.package-archive");
+      i.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivityForResult(i,IMPORT_BUILT_APK);
+    }));
     File[] ps=projects();if(ps.length>0)body.addView(action("Build selected project (requires approval)",()->chooseProject(ps,project->
       new android.app.AlertDialog.Builder(this).setTitle("Approve APK build").setMessage("Run Gradle --offline assembleDebug for "+project.getName()+"?").setNegativeButton("Cancel",null)
         .setPositiveButton("Build",(d,w)->{status.setText("Building…");new Thread(()->{try{String log=controller.build(project,true);File apk=controller.expectedApk(project);runOnUiThread(()->new android.app.AlertDialog.Builder(this).setTitle("Build result").setMessage(log).setNegativeButton("Close",null).setPositiveButton("Install APK", (dialog,which)->{try{ApkInstaller.install(this,apk);}catch(Exception error){showError("APK installation failed",error);}}).show());}
@@ -225,6 +264,13 @@ public class MainActivity extends Activity {
       chooseProject(current,project->{try{File apk=new BuildController(this).expectedApk(project);ApkInstaller.install(this,apk);}catch(Exception error){showError("APK installation failed",error);}});
     }));
     body.addView(action("Home",this::home));
+  }
+  private void showTermuxInstructions(String projectName){
+    String commands="termux-setup-storage\nmkdir -p ~/storage/downloads/aimobilestudio-builds\nunzip ~/storage/downloads/"+projectName+"-source.zip -d ~/storage/downloads/aimobilestudio-builds\ncd ~/storage/downloads/aimobilestudio-builds/"+projectName+"\nbash AIMobileStudio-Termux-Build.sh";
+    new android.app.AlertDialog.Builder(this).setTitle("Build in Termux")
+      .setMessage("Save the ZIP in Downloads, then run these commands in Termux. The first command grants shared-storage access.\n\n"+commands+"\n\nAfter success, select Import APK built in Termux.")
+      .setPositiveButton("Copy commands",(d,w)->{android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(android.content.ClipData.newPlainText("Termux build commands",commands));})
+      .setNegativeButton("Close",null).show();
   }
   private void showError(String title,Exception e){new android.app.AlertDialog.Builder(this).setTitle(title).setMessage(e.getClass().getSimpleName()+": "+e.getMessage()).setPositiveButton("OK",null).show();}
 }
