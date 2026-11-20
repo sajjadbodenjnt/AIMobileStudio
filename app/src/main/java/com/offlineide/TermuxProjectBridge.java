@@ -34,23 +34,23 @@ public final class TermuxProjectBridge {
       "echo \"Build Tools: $(basename \"$BUILD_TOOLS\")\"" + "\n" +
       "\"${GRADLE[@]}\" --version | head -n 12" + "\n" +
       "TYPE=\"${AIMS_BUILD_TYPE:-debug}\"" + "\n" +
-      "case \"$TYPE\" in debug) TASK=assembleDebug;; release) TASK=assembleRelease;; *) echo \"AIMS_BUILD_TYPE must be debug or release.\"; exit 8;; esac" + "\n" +
-      "echo \"Building all Android modules: $TASK\"" + "\n" +
-      "\"${GRADLE[@]}\" --no-daemon --stacktrace --console=plain \"$TASK\"" + "\n" +
-      "mapfile -t APKS < <(find . -type f -name '*.apk' | grep '/build/outputs/apk/' | sort)" + "\n" +
-      "((\"${#APKS[@]}\" > 0)) || { echo \"No APK produced. This project may produce only an AAB.\"; exit 9; }" + "\n" +
+      "case \"$TYPE\" in debug) TASK=assembleDebug; KIND=apk;; release) TASK=assembleRelease; KIND=apk;; aab) TASK=bundleDebug; KIND=aab;; aab-release) TASK=bundleRelease; KIND=aab;; *) echo \"AIMS_BUILD_TYPE must be debug, release, aab, or aab-release.\"; exit 8;; esac" + "\n" +
+      "echo \"Building all Android modules: $TASK ($KIND)\"" + "\n" +
+      "\"\${GRADLE[@]}\" --no-daemon --stacktrace --console=plain \"$TASK\"" + "\n" +
+      "if [[ \"$KIND\" == apk ]]; then mapfile -t OUTPUTS < <(find . -type f -name '*.apk' | grep '/build/outputs/apk/' | sort); else mapfile -t OUTPUTS < <(find . -type f -name '*.aab' | grep '/build/outputs/bundle/' | sort); fi" + "\n" +
+      "((\"\${#OUTPUTS[@]}\" > 0)) || { echo \"No $KIND artifact produced.\"; exit 9; }" + "\n" +
       "OUT=\"$HOME/storage/downloads/AIMobileStudio-Builds/$(basename \"$ROOT\")\"" + "\n" +
       "mkdir -p \"$OUT\"" + "\n" +
-      "for apk in \"${APKS[@]}\"; do" + "\n" +
-      "  name=\"$(echo \"$apk\" | sed 's#^./##; s#/#-#g; s#[^A-Za-z0-9._-]#_#g')\"" + "\n" +
+      "for artifact in \"\${OUTPUTS[@]}\"; do" + "\n" +
+      "  name=\"$(echo \"$artifact\" | sed 's#^./##; s#/#-#g; s#[^A-Za-z0-9._-]#_#g')\"" + "\n" +
       "  dest=\"$OUT/$name\"" + "\n" +
-      "  cp \"$apk\" \"$dest\"" + "\n" +
-      "  test -s \"$dest\" || { echo \"Empty APK: $dest\"; exit 10; }" + "\n" +
-      "  if [[ -x \"$BUILD_TOOLS/apksigner\" ]]; then \"$BUILD_TOOLS/apksigner\" verify --verbose \"$dest\"; else echo \"WARNING: apksigner unavailable; signature not independently verified.\"; fi" + "\n" +
-      "  echo \"APK_READY=$dest\"" + "\n" +
+      "  cp \"$artifact\" \"$dest\"" + "\n" +
+      "  test -s \"$dest\" || { echo \"Empty artifact: $dest\"; exit 10; }" + "\n" +
+      "  if [[ \"$KIND\" == apk && -x \"$BUILD_TOOLS/apksigner\" ]]; then \"$BUILD_TOOLS/apksigner\" verify --verbose \"$dest\"; fi" + "\n" +
+      "  echo \"\${KIND^^}_READY=$dest\"" + "\n" +
       "done" + "\n" +
-      "[[ \"$TYPE\" != release ]] || echo \"WARNING: Configure your own release signing key before distribution.\"" + "\n" +
-      "echo \"BUILD SUCCESS: copied ${#APKS[@]} APK(s) to $OUT\"" + "\n" +
+      "[[ \"$TYPE\" != release && \"$TYPE\" != aab-release ]] || echo \"WARNING: Configure your own release signing key before distribution.\"" + "\n" +
+      "echo \"BUILD SUCCESS: copied \${#OUTPUTS[@]} $KIND artifact(s) to $OUT\"" + "\n" +
       "" + "\n";
 
   public static void exportZip(File project, OutputStream destination) throws IOException {
