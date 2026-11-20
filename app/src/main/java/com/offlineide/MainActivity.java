@@ -222,7 +222,7 @@ public class MainActivity extends Activity {
     body.addView(action("Install last built APK",()->{
       File[] current=projects();
       if(current.length==0){status.setText("No project found.");return;}
-      chooseProject(current,project->{File apk=new BuildController(this).expectedApk(project);try{ApkInstaller.install(this,apk);}catch(Exception error){showError("APK installation failed",error);}});
+      chooseProject(current,project->{try{File apk=new BuildController(this).expectedApk(project);ApkInstaller.install(this,apk);}catch(Exception error){showError("APK installation failed",error);}});
     }));
     body.addView(action("Home",this::home));
   }
