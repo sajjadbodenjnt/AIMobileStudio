@@ -8,7 +8,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import android.net.Uri;
 import android.util.Base64;
-import android.graphics.Bitmap;\nimport android.graphics.BitmapFactory;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 
 /**
  * ChatGPT plan-usage client for a locally running open-source app.
