@@ -86,15 +86,27 @@ public class MainActivity extends Activity {
   private void updateImageStatus(){if(imageStatus!=null)imageStatus.setText("Reference image queue: "+selectedImages.size()+" • Saved on this device");}
   private void clearImageQueue(){imageQueue.clear();selectedImages.clear();updateImageStatus();}
   private void home(){
-    shell("AIMOBILESTUDIO");
-    body.addView(label("ChatGPT-powered Android app development studio",16));
-    body.addView(label("Workspace: "+workspace.getAbsolutePath(),11));
-    body.addView(action("New Android App Project",this::newProject));
-    body.addView(action("Open Workspace",this::files));
-    body.addView(action("✨ Create a complete app with ChatGPT",this::createWithChatGPT));
-    body.addView(action("ChatGPT Coding Agent",this::chatGPT));
-    body.addView(action("APK Build Controller",this::buildInfo));
-    body.addView(label("\nChatGPT-connected mode requires internet and account authorization. APK building requires a compatible Android build toolchain.",13));
+    shell("  ◈  AI MOBILE STUDIO");
+    TextView account=label(chatAuth.load()!=null && chatAuth.load().optBoolean("plan_usage_enabled") ? "●  ChatGPT Logged-in" : "○  ChatGPT Not connected",12);
+    account.setTextColor(0xff63e6a3); account.setPadding(dp(4),dp(2),0,dp(10)); body.addView(account);
+    LinearLayout projectBar=new LinearLayout(this); projectBar.setGravity(Gravity.CENTER_VERTICAL);
+    TextView projectTitle=label("▣  My Projects",16); projectBar.addView(projectTitle,new LinearLayout.LayoutParams(0,-2,1));
+    projectBar.addView(action("＋ New",this::newProject)); body.addView(projectBar);
+    body.addView(label("Workspace  •  "+workspace.getAbsolutePath(),10));
+    body.addView(action("📂  Project Explorer",this::files));
+    body.addView(action("＋  Create Android App with ChatGPT",this::createWithChatGPT));
+    body.addView(action("◉  ChatGPT Coding Agent / Sign in",this::chatGPT));
+    body.addView(label("\nBUILD OUTPUT",12));
+    LinearLayout builds=new LinearLayout(this); builds.setOrientation(LinearLayout.HORIZONTAL);
+    Button debug=action("Build Debug APK",this::buildInfo); builds.addView(debug,new LinearLayout.LayoutParams(0,dp(52),1));
+    Button aab=action("Release AAB / APK",this::buildInfo); builds.addView(aab,new LinearLayout.LayoutParams(0,dp(52),1)); body.addView(builds);
+    body.addView(action("⚙  SDK Manager & Toolchain Status",this::buildInfo));
+    body.addView(action("🛠  Fix Build Error with ChatGPT",this::chatGPT));
+    body.addView(action("📲  Install & Test Imported APK",this::buildInfo));
+    body.addView(label("\nEDITOR • PREVIEW • BUILD",12));
+    TextView preview=label("Open a project to edit Java / Kotlin / HTML / Gradle files.\n\nLive device preview is not yet implemented; APK preview requires a successful build and install.",13);
+    preview.setPadding(dp(12),dp(14),dp(12),dp(14)); preview.setBackgroundColor(0xff17251f); body.addView(preview);
+    body.addView(label("\nChatGPT features require internet and account authorization. Build operations require a compatible Termux Android toolchain.",11));
   }
   private void newProject(){
     EditText input=new EditText(this);input.setHint("App name (letters/numbers)");
