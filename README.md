@@ -13,7 +13,7 @@ AI Mobile Studio is a ChatGPT-powered native Android app-building workspace. It 
 - ChatGPT is the app's AI provider; no Ollama installation, local model download, or local AI server is required.
 - Persistent reference-image queue with no fixed app-imposed item count, multi-select picker, duplicate removal, and saved document permissions where supported.
 - Reference images are decoded one at a time and downscaled to a maximum 2048-pixel edge before upload to reduce memory pressure.
-- Termux bridge exports a project ZIP through Android's Storage Access Framework, excludes build caches and signing secrets, bundles a Gradle 8.9 build script, and imports the resulting APK through a user-selected document.
+- Termux bridge exports a project ZIP through Android's Storage Access Framework, excludes build caches and signing secrets, bundles a Gradle build script, and imports the resulting APK through a user-selected document.\n- ARM64 Termux bootstrap installs/checks JDK 21, Gradle and native Android utilities, detects the SDK, attempts API 35 platform provisioning through an existing sdkmanager, and reports missing components.
 - GitHub Actions workflow builds the AI Mobile Studio app itself and uploads its debug APK as a workflow artifact.
 
 ## Important capability boundaries
