@@ -5,42 +5,61 @@ import java.util.Locale;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+/** SAF-based, user-confirmed handoff to Termux; it never crosses Android app sandboxes. */
 public final class TermuxProjectBridge {
   private TermuxProjectBridge() {}
   private static final String BUILD_SCRIPT =
-      "#!/data/data/com.termux/files/usr/bin/bash\n" +
-      "set -Eeuo pipefail\n" +
-      "ROOT=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n" +
-      "cd \"$ROOT\"\n" +
-      "if [[ \"${PREFIX:-}\" != /data/data/com.termux/files/usr ]]; then echo 'Run inside Termux, not proot.' >&2; exit 2; fi\n" +
-      "command -v java >/dev/null || { echo 'Install JDK 17: pkg install openjdk-17'; exit 3; }\n" +
-      "java -version 2>&1 | grep -Eq '17\\.|21\\.' || { echo 'JDK 17 or 21 is required.'; exit 3; }\n" +
-      "SDK=\"${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}\"\n" +
-      "for candidate in \"$HOME/lib/android-sdk-9123335\" \"$HOME/lib/android-sdk\" \"$HOME/Android/Sdk\"; do if [[ -z \"$SDK\" && -d \"$candidate/platforms/android-35\" ]]; then SDK=\"$candidate\"; fi; done\n" +
-      "if [[ -z \"$SDK\" || ! -f \"$SDK/platforms/android-35/android.jar\" ]]; then echo 'Android SDK Platform 35 not found. Set ANDROID_HOME.'; exit 4; fi\n" +
-      "export ANDROID_HOME=\"$SDK\" ANDROID_SDK_ROOT=\"$SDK\"\n" +
-      "if [[ ! -x \"$HOME/.aimobilestudio/gradle-8.9/bin/gradle\" ]]; then\n" +
-      "  command -v curl >/dev/null || { echo 'Install curl: pkg install curl'; exit 5; }\n" +
-      "  command -v unzip >/dev/null || { echo 'Install unzip: pkg install unzip'; exit 5; }\n" +
-      "  mkdir -p \"$HOME/.aimobilestudio\"\n" +
-      "  curl -fL --retry 3 https://downloads.gradle.org/distributions/gradle-8.9-bin.zip -o \"$HOME/.aimobilestudio/gradle-8.9-bin.zip\"\n" +
-      "  unzip -q -o \"$HOME/.aimobilestudio/gradle-8.9-bin.zip\" -d \"$HOME/.aimobilestudio\"\n" +
-      "fi\n" +
-      "GRADLE=\"$HOME/.aimobilestudio/gradle-8.9/bin/gradle\"\n" +
-      "printf 'sdk.dir=%s\\n' \"$SDK\" > local.properties\n" +
-      "echo 'First build downloads required Android Gradle Plugin and Maven dependencies.'\n" +
-      "\"$GRADLE\" --no-daemon --stacktrace clean assembleDebug\n" +
-      "APK=app/build/outputs/apk/debug/app-debug.apk\n" +
-      "test -s \"$APK\" || { echo 'APK missing or empty.'; exit 6; }\n" +
-      "mkdir -p \"$HOME/storage/downloads/AIMobileStudio-Builds\"\n" +
-      "OUT=\"$HOME/storage/downloads/AIMobileStudio-Builds/$(basename \"$ROOT\")-debug.apk\"\n" +
-      "cp \"$APK\" \"$OUT\"\n" +
-      "echo \"BUILD SUCCESS: $OUT\"\n";
+      "#!/data/data/com.termux/files/usr/bin/bash" +\n
+      "set -Eeuo pipefail" +\n
+      "ROOT=\"$(cd \"$(dirname \"$0\")\" && pwd)\"" +\n
+      "cd \"$ROOT\"" +\n
+      "[[ \"${PREFIX:-}\" == /data/data/com.termux/files/usr ]] || { echo \"Run inside Termux, not proot.\" >&2; exit 2; }" +\n
+      "command -v java >/dev/null 2>&1 || { echo \"Install JDK: pkg install openjdk-17\"; exit 3; }" +\n
+      "java -version 2>&1 | grep -Eq 'version \"(17|21)(\\.|\\+)' || { echo \"JDK 17 or 21 required.\"; exit 3; }" +\n
+      "SDK=\"${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}\"" +\n
+      "for p in \"$HOME/lib/android-sdk-9123335\" \"$HOME/lib/android-sdk\" \"$HOME/Android/Sdk\"; do" +\n
+      "  if [[ -z \"$SDK\" && -d \"$p/platforms\" ]]; then SDK=\"$p\"; fi" +\n
+      "done" +\n
+      "[[ -n \"$SDK\" && -d \"$SDK/platforms\" && -d \"$SDK/build-tools\" ]] || { echo \"Set ANDROID_HOME to an installed Android SDK with platforms and build-tools.\"; exit 4; }" +\n
+      "export ANDROID_HOME=\"$SDK\" ANDROID_SDK_ROOT=\"$SDK\"" +\n
+      "[[ -f settings.gradle || -f settings.gradle.kts ]] || { echo \"settings.gradle(.kts) missing.\"; exit 5; }" +\n
+      "grep -RqsE 'com\\.android\\.(application|library)|com.android.tools.build:gradle' --include='*.gradle' --include='*.gradle.kts' . || { echo \"Android Gradle Plugin declaration not found.\"; exit 5; }" +\n
+      "if [[ -f gradlew ]]; then chmod +x gradlew; GRADLE=(./gradlew)" +\n
+      "elif command -v gradle >/dev/null 2>&1; then GRADLE=(gradle)" +\n
+      "else echo \"Install Gradle: pkg install gradle\"; exit 6; fi" +\n
+      "BUILD_TOOLS=\"$(find \"$SDK/build-tools\" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)\"" +\n
+      "[[ -n \"$BUILD_TOOLS\" ]] || { echo \"No Android Build Tools found.\"; exit 7; }" +\n
+      "echo \"Java: $(java -version 2>&1 | head -n 1)\"" +\n
+      "echo \"SDK: $SDK\"" +\n
+      "echo \"Build Tools: $(basename \"$BUILD_TOOLS\")\"" +\n
+      "\"${GRADLE[@]}\" --version | head -n 12" +\n
+      "TYPE=\"${AIMS_BUILD_TYPE:-debug}\"" +\n
+      "case \"$TYPE\" in debug) TASK=assembleDebug;; release) TASK=assembleRelease;; *) echo \"AIMS_BUILD_TYPE must be debug or release.\"; exit 8;; esac" +\n
+      "echo \"Building all Android modules: $TASK\"" +\n
+      "\"${GRADLE[@]}\" --no-daemon --stacktrace --console=plain \"$TASK\"" +\n
+      "mapfile -t APKS < <(find . -type f -name '*.apk' | grep '/build/outputs/apk/' | sort)" +\n
+      "((\"${#APKS[@]}\" > 0)) || { echo \"No APK produced. This project may produce only an AAB.\"; exit 9; }" +\n
+      "OUT=\"$HOME/storage/downloads/AIMobileStudio-Builds/$(basename \"$ROOT\")\"" +\n
+      "mkdir -p \"$OUT\"" +\n
+      "for apk in \"${APKS[@]}\"; do" +\n
+      "  name=\"$(echo \"$apk\" | sed 's#^./##; s#/#-#g; s#[^A-Za-z0-9._-]#_#g')\"" +\n
+      "  dest=\"$OUT/$name\"" +\n
+      "  cp \"$apk\" \"$dest\"" +\n
+      "  test -s \"$dest\" || { echo \"Empty APK: $dest\"; exit 10; }" +\n
+      "  if [[ -x \"$BUILD_TOOLS/apksigner\" ]]; then \"$BUILD_TOOLS/apksigner\" verify --verbose \"$dest\"; else echo \"WARNING: apksigner unavailable; signature not independently verified.\"; fi" +\n
+      "  echo \"APK_READY=$dest\"" +\n
+      "done" +\n
+      "[[ \"$TYPE\" != release ]] || echo \"WARNING: Configure your own release signing key before distribution.\"" +\n
+      "echo \"BUILD SUCCESS: copied ${#APKS[@]} APK(s) to $OUT\"" +\n
+      ""      "";
 
   public static void exportZip(File project, OutputStream destination) throws IOException {
     File root = project.getCanonicalFile();
-    if (!root.isDirectory() || !new File(root, "settings.gradle").isFile() ||
-        !new File(root, "app/build.gradle").isFile()) throw new IOException("Not a complete Android Gradle project.");
+    if (!root.isDirectory() ||
+        !(new File(root, "settings.gradle").isFile() || new File(root, "settings.gradle.kts").isFile()) ||
+        !(new File(root, "app/build.gradle").isFile() || new File(root, "app/build.gradle.kts").isFile())) {
+      throw new IOException("Select a complete Android Gradle project with an app module.");
+    }
     try (ZipOutputStream zip = new ZipOutputStream(new BufferedOutputStream(destination))) {
       zip.putNextEntry(new ZipEntry(root.getName() + "/")); zip.closeEntry();
       addTree(zip, root, root.getName(), 0);
@@ -48,15 +67,16 @@ public final class TermuxProjectBridge {
       zip.write(BUILD_SCRIPT.getBytes("UTF-8")); zip.closeEntry(); zip.finish();
     }
   }
+
   private static void addTree(ZipOutputStream zip, File dir, String prefix, int depth) throws IOException {
     if (depth > 30) throw new IOException("Project nesting is too deep.");
     File[] children = dir.listFiles(); if (children == null) return;
     for (File child : children) {
       String n = child.getName().toLowerCase(Locale.ROOT);
       if (n.equals("build") || n.equals(".gradle") || n.equals(".git") || n.equals(".idea") ||
-          n.equals("local.properties") || n.equals(".env") || n.endsWith(".jks") ||
-          n.endsWith(".keystore") || n.contains("secret") || n.contains("credential") ||
-          n.equals("keystore.properties")) continue;
+          n.equals("local.properties") || n.equals(".env") || n.startsWith(".env.") ||
+          n.endsWith(".jks") || n.endsWith(".keystore") || n.contains("secret") ||
+          n.contains("credential") || n.equals("keystore.properties")) continue;
       if (child.isDirectory()) {
         zip.putNextEntry(new ZipEntry(prefix + "/" + child.getName() + "/")); zip.closeEntry();
         addTree(zip, child, prefix + "/" + child.getName(), depth + 1);
