@@ -132,8 +132,10 @@ public final class ChatGPTAgent {
     if (!completed) throw new IOException("AI stream ended before response.completed; generated output was discarded.");
     String result = output.toString().trim();
     if (result.isEmpty()) throw new IOException("ChatGPT returned an empty response.");
-    return result.replaceAll("^\\\\s*\\\\x60{3}(?:json)?\\\\s*", "")
-                 .replaceAll("\\\\s*\\\\x60{3}\\\\s*$", "");
+    if (result.startsWith("```json")) result = result.substring(7).trim();
+    else if (result.startsWith("```")) result = result.substring(3).trim();
+    if (result.endsWith("```")) result = result.substring(0, result.length() - 3).trim();
+    return result;
   }
 
   private static String readAll(InputStream in) throws IOException {
