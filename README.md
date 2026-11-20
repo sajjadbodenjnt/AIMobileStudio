@@ -26,7 +26,7 @@ This is an actively developed foundation, **not yet a complete professional offl
 
 Use JDK 17, Android SDK Platform 35, Android Gradle Plugin 8.7.3 and Gradle 8.9. The GitHub Actions workflow builds the debug APK and uploads it as an artifact. First dependency resolution requires internet; after all SDK and Gradle/Maven artifacts are cached, Gradle can run with --offline.
 
-## Build a generated project
+## Prepare the Termux ARM64 toolchain\n\nRun `bash scripts/install-termux-toolchain.sh` inside Termux. It checks/installs available host tools and detects an existing Android SDK. Read [Termux Toolchain Setup](docs/TERMUX_TOOLCHAIN.md). This prepares the Termux environment only; the in-app Build Controller still needs a secure Termux bridge because Android apps cannot directly execute another app's private binaries.\n\n## Build a generated project
 
 A generated project is a standard Android Gradle project. It needs JDK 17, Android SDK Platform 35, Build Tools and the matching Gradle/Android Gradle Plugin dependencies. After those are cached, run:
 
