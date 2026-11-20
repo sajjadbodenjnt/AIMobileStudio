@@ -30,9 +30,13 @@ public final class ChatGPTAgent {
     JSONObject cred=auth.loadValid();if(cred==null||!cred.optBoolean("plan_usage_enabled"))throw new SecurityException("Sign in and enable ChatGPT plan usage first.");
     JSONArray available=models();if(available.length()==0)throw new IOException("No models available for this account.");
     String model=available.getJSONObject(0).getString("id");
-    String prompt="You are the coding agent inside AIMobileStudio. Return ONLY valid JSON with schema {\"summary\":string,\"files\":[{\"path\":string,\"content\":string}]}. "+
-      "Create complete production-minded Android Java/XML source files. Never include absolute paths, ../, shell commands, secrets or API keys. "+
-      "Do not overwrite files not requested. User request: "+instruction+"\nExisting project files summary:\n"+projectSummary;
+    String prompt="You are the senior Android engineer inside AIMobileStudio. Return ONLY one valid JSON object with schema {\"summary\":string,\"files\":[{\"path\":string,\"content\":string}]}. "+
+      "Every file content must be complete, not abbreviated. Never use markdown fences. Never include absolute paths, ../, shell commands, secrets or API keys. "+
+      "When asked to create a new app, generate a complete Gradle Android project: settings.gradle, root build.gradle, gradle.properties, app/build.gradle, app/src/main/AndroidManifest.xml, Java source under the matching package path, and all required XML resources. "+
+      "Use Java 17, compileSdk 35, minSdk 26, targetSdk 35. Prefer Android framework APIs and avoid AndroidX or external dependencies. "+
+      "Ensure all referenced classes, resources, package names and manifest entries exist and match. Implement real working interactions, input validation, loading/error/empty states and polished UI. "+
+      "Do not output TODOs, pseudocode, placeholder screens, or instructions instead of code. For existing projects, preserve unrelated files and make only necessary changes. "+
+      "File paths must be relative to the selected project root. User request: "+instruction+"\nExisting project files summary:\n"+projectSummary;
     JSONObject body=new JSONObject().put("model",model).put("store",false).put("stream",false)
       .put("input",new JSONArray().put(new JSONObject().put("role","user").put("content",prompt)));
     JSONObject response=new JSONObject(request("https://api.openai.com/v1/responses","POST",body.toString(),cred.getString("access_token")));
