@@ -10,12 +10,14 @@ AI Mobile Studio is a native Android app-building workspace. It combines a ChatG
 - AI-generated project files are previewed and require user approval before being written.
 - Project workspace path validation and backups for replaced files.
 - Local project creation and source editing.
+- Persistent reference-image queue with no fixed app-imposed item count, multi-select picker, duplicate removal, and saved document permissions where supported.
+- Reference images are decoded one at a time and downscaled to a maximum 2048-pixel edge before upload to reduce memory pressure.
 - Offline build controller invokes only the app-private Gradle executable, checks the Android 35 SDK platform, drains build logs safely, enforces a build timeout, and verifies that a non-empty APK was produced.
 - GitHub Actions workflow builds the AI Mobile Studio app itself and uploads its debug APK as a workflow artifact.
 
 ## Important capability boundaries
 
-This repository is an actively developed builder, not yet a verified one-click professional APK factory.
+This repository is an actively developed builder, not yet a verified one-click professional APK factory. Image queue capacity is still bounded by device storage/RAM, network transport, request size, and the connected ChatGPT model/account/service limits; the app does not bypass those provider limits. Current generation sends the selected queue in a request, so very large queues still need the planned resumable batch-analysis pipeline.
 
 The current Android app does **not** yet contain a complete app-private Gradle/JDK/Android SDK toolchain. The offline build controller reports missing prerequisites until that toolchain is provisioned. The Termux bootstrap script prepares Termux; it does not automatically grant this Android app access to Termux's private files.
 
