@@ -45,16 +45,21 @@ public class MainActivity extends Activity {
   @Override protected void onActivityResult(int requestCode,int resultCode,android.content.Intent data){
     super.onActivityResult(requestCode,resultCode,data);
     if(requestCode!=PICK_IMAGES||resultCode!=RESULT_OK||data==null)return;
-    if(data.getClipData()!=null){android.content.ClipData clip=data.getClipData();for(int i=0;i<clip.getItemCount();i++){Uri u=clip.getItemAt(i).getUri();if(u!=null&&!selectedImages.contains(u))selectedImages.add(u);}}
-    else if(data.getData()!=null&&!selectedImages.contains(data.getData()))selectedImages.add(data.getData());
+    ArrayList<Uri> added=new ArrayList<>();
+    if(data.getClipData()!=null){android.content.ClipData clip=data.getClipData();for(int i=0;i<clip.getItemCount();i++){Uri u=clip.getItemAt(i).getUri();if(u!=null)added.add(u);}}
+    else if(data.getData()!=null)added.add(data.getData());
+    for(Uri u:added){try{getContentResolver().takePersistableUriPermission(u,data.getFlags() & (android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION|android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION));}catch(Exception ignored){}}
+    imageQueue.add(added);selectedImages.clear();selectedImages.addAll(imageQueue.all());
     updateImageStatus();
   }
   private void chooseImages(){
     android.content.Intent intent=new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
     intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);intent.setType("image/*");
-    intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION|android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);\n    intent.putExtra(android.content.Intent.EXTRA_ALLOW_MULTIPLE,true);startActivityForResult(intent,PICK_IMAGES);
+    intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION|android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+    intent.putExtra(android.content.Intent.EXTRA_ALLOW_MULTIPLE,true);startActivityForResult(intent,PICK_IMAGES);
   }
-  private void updateImageStatus(){if(imageStatus!=null)imageStatus.setText("Reference image queue: "+selectedImages.size()+" • Saved on this device");}\n  private void clearImageQueue(){imageQueue.clear();selectedImages.clear();updateImageStatus();}
+  private void updateImageStatus(){if(imageStatus!=null)imageStatus.setText("Reference image queue: "+selectedImages.size()+" • Saved on this device");}
+  private void clearImageQueue(){imageQueue.clear();selectedImages.clear();updateImageStatus();}
   private void home(){
     shell("AIMOBILESTUDIO");
     body.addView(label("Offline-first Android app development studio",16));
@@ -100,7 +105,6 @@ public class MainActivity extends Activity {
     shell("CREATE APP WITH CHATGPT");
     body.addView(label("Describe the app you want. ChatGPT will generate a complete Android Studio project, then you review every file before it is saved.",14));
     EditText appName=new EditText(this);appName.setSingleLine(true);appName.setTextColor(Color.WHITE);appName.setHint("App name (example: MyShop)");body.addView(appName);
-    selectedImages.clear();
     EditText prompt=new EditText(this);prompt.setTextColor(Color.WHITE);prompt.setMinLines(5);prompt.setHint("Describe every feature, screen and design you want. You can write in Bangla or English.");body.addView(prompt);
     body.addView(action("＋ Add design images / screenshots",this::chooseImages));imageStatus=label("",12);body.addView(imageStatus);updateImageStatus();body.addView(action("Clear saved image queue",this::clearImageQueue));
     body.addView(action("Generate complete Android app",()->{
@@ -160,7 +164,6 @@ public class MainActivity extends Activity {
   }
   private void agentPrompt(){
     body.addView(label("\nDescribe the Android app or code change. The agent proposes files first; nothing is written until you approve.",13));
-    selectedImages.clear();
     EditText request=new EditText(this);request.setTextColor(Color.WHITE);request.setMinLines(4);request.setHint("Example: Build a polished expense tracker with dashboard, transactions and settings…");body.addView(request);
     body.addView(action("＋ Add reference images",this::chooseImages));imageStatus=label("",12);body.addView(imageStatus);updateImageStatus();body.addView(action("Clear saved image queue",this::clearImageQueue));
     body.addView(action("Generate project files",()->{
