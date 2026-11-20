@@ -122,8 +122,14 @@ public class MainActivity extends Activity {
     StringBuilder s=new StringBuilder();ArrayDeque<File> q=new ArrayDeque<>();q.add(root);int count=0;
     while(!q.isEmpty()&&count<35){File f=q.removeFirst();File[] list=f.listFiles();if(list==null)continue;
       for(File x:list){if(x.isDirectory()){if(!x.getName().equals("build")&&!x.getName().equals(".gradle"))q.add(x);}
-        else if(x.length()<24000&&count<35){String rel=x.getCanonicalPath().substring(root.getCanonicalPath().length()+1);s.append("\n--- ").append(rel).append(" ---\n").append(readText(x));count++;}}}
+        else if(!sensitiveFile(x)&&x.length()<24000&&count<35){String rel=x.getCanonicalPath().substring(root.getCanonicalPath().length()+1);s.append("\n--- ").append(rel).append(" ---\n").append(readText(x));count++;}}}
     return s.toString();
+  }
+  private boolean sensitiveFile(File file){
+    String n=file.getName().toLowerCase(Locale.ROOT);
+    return n.equals(".env")||n.startsWith(".env.")||n.equals("local.properties")||
+      n.endsWith(".jks")||n.endsWith(".keystore")||n.contains("secret")||
+      n.contains("credential")||n.equals("keystore.properties");
   }
   private File safeTarget(File root,String relative)throws Exception{
     if(relative==null||relative.trim().isEmpty()||relative.startsWith("/")||relative.contains("\\")||relative.matches("^[A-Za-z]:.*"))throw new SecurityException("Invalid file path");
