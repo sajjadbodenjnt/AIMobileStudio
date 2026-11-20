@@ -217,8 +217,13 @@ public class MainActivity extends Activity {
     body.addView(label("\nBuild is deliberately disabled until a compatible offline Gradle + Android SDK toolchain is provisioned inside app-private storage. It never executes arbitrary shell commands.",12));
     File[] ps=projects();if(ps.length>0)body.addView(action("Build selected project (requires approval)",()->chooseProject(ps,project->
       new android.app.AlertDialog.Builder(this).setTitle("Approve APK build").setMessage("Run Gradle --offline assembleDebug for "+project.getName()+"?").setNegativeButton("Cancel",null)
-        .setPositiveButton("Build",(d,w)->{status.setText("Building…");new Thread(()->{try{String log=controller.build(project,true);runOnUiThread(()->new android.app.AlertDialog.Builder(this).setTitle("Build result").setMessage(log).setPositiveButton("OK",null).show());}
+        .setPositiveButton("Build",(d,w)->{status.setText("Building…");new Thread(()->{try{String log=controller.build(project,true);File apk=controller.expectedApk(project);runOnUiThread(()->new android.app.AlertDialog.Builder(this).setTitle("Build result").setMessage(log).setNegativeButton("Close",null).setPositiveButton("Install APK", (dialog,which)->{try{ApkInstaller.install(this,apk);}catch(Exception error){showError("APK installation failed",error);}}).show());}
           catch(Exception e){runOnUiThread(()->showError("Build failed",e));}}).start();}).show())));
+    body.addView(action("Install last built APK",()->{
+      File[] current=projects();
+      if(current.length==0){status.setText("No project found.");return;}
+      chooseProject(current,project->{File apk=new BuildController(this).expectedApk(project);try{ApkInstaller.install(this,apk);}catch(Exception error){showError("APK installation failed",error);}});
+    }));
     body.addView(action("Home",this::home));
   }
   private void showError(String title,Exception e){new android.app.AlertDialog.Builder(this).setTitle(title).setMessage(e.getClass().getSimpleName()+": "+e.getMessage()).setPositiveButton("OK",null).show();}
