@@ -266,7 +266,7 @@ public class MainActivity extends Activity {
     body.addView(action("Home",this::home));
   }
   private void showTermuxInstructions(String projectName){
-    String commands="termux-setup-storage\nmkdir -p ~/storage/downloads/aimobilestudio-builds\nunzip ~/storage/downloads/"+projectName+"-source.zip -d ~/storage/downloads/aimobilestudio-builds\ncd ~/storage/downloads/aimobilestudio-builds/"+projectName+"\nbash AIMobileStudio-Termux-Build.sh";
+    String commands="termux-setup-storage\npkg install openjdk-17 curl unzip\nmkdir -p ~/storage/downloads/aimobilestudio-builds\nunzip ~/storage/downloads/"+projectName+"-source.zip -d ~/storage/downloads/aimobilestudio-builds\ncd ~/storage/downloads/aimobilestudio-builds/"+projectName+"\nbash AIMobileStudio-Termux-Build.sh";
     new android.app.AlertDialog.Builder(this).setTitle("Build in Termux")
       .setMessage("Save the ZIP in Downloads, then run these commands in Termux. The first command grants shared-storage access.\n\n"+commands+"\n\nAfter success, select Import APK built in Termux.")
       .setPositiveButton("Copy commands",(d,w)->{android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(android.content.ClipData.newPlainText("Termux build commands",commands));})
