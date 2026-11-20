@@ -154,7 +154,7 @@ public final class ChatGPTAgent {
       try(InputStream in=context.getContentResolver().openInputStream(uri);ByteArrayOutputStream out=new ByteArrayOutputStream()){
         if(in==null)throw new IOException("Cannot open selected image.");
         byte[] buffer=new byte[8192];int n;
-        while((n=in.read(buffer))!=-1){out.write(buffer,0,n);if(out.size()>15*1024*1024)throw new IOException("One image exceeds the 15 MB app safety limit. Select a smaller image.");}
+        while((n=in.read(buffer))!=-1){out.write(buffer,0,n);}
         bytes=out.toByteArray();
       }
       String dataUrl="data:"+mime+";base64,"+Base64.encodeToString(bytes,Base64.NO_WRAP);
