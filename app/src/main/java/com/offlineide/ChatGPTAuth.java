@@ -55,7 +55,20 @@ public final class ChatGPTAuth {
   public JSONObject load()throws Exception{
     String value=context.getSharedPreferences(PREF,0).getString("credential",null);if(value==null)return null;
     String[] p=value.split("\\.",2);Cipher c=Cipher.getInstance("AES/GCM/NoPadding");c.init(Cipher.DECRYPT_MODE,key(),new GCMParameterSpec(128,unb64(p[0])));
-    return new JSONObject(new String(c.doFinal(unb64(p[1])),StandardCharsets.UTF_8));
+    JSONObject record=new JSONObject(new String(c.doFinal(unb64(p[1])),StandardCharsets.UTF_8));
+    if(record.optLong("expires_at",0)<System.currentTimeMillis()+60000L)record=refresh(record);
+    return record;
+  }
+  private JSONObject refresh(JSONObject old)throws Exception{
+    String rt=old.optString("refresh_token","");
+    if(rt.isEmpty())throw new IOException("ChatGPT session expired. Sign in again.");
+    String form="grant_type=refresh_token&client_id="+enc(old.getString("client_id"))+"&refresh_token="+enc(rt)+"&resource="+enc(RESOURCE);
+    JSONObject fresh=new JSONObject(http(TOKEN,"POST",form,null));
+    old.put("access_token",fresh.getString("access_token"));
+    if(!fresh.optString("refresh_token","").isEmpty())old.put("refresh_token",fresh.getString("refresh_token"));
+    old.put("expires_at",System.currentTimeMillis()+fresh.optLong("expires_in",3600)*1000L);
+    if(fresh.has("scope")){String scopes=fresh.optString("scope","");old.put("scope",scopes);old.put("plan_usage_enabled",Arrays.asList(scopes.split(" ")).contains("chatgpt.tokens.use.direct"));}
+    save(old);return old;
   }
   public void disconnect(){context.getSharedPreferences(PREF,0).edit().clear().apply();}
   public boolean isConnected(){try{return load()!=null;}catch(Exception e){return false;}}
