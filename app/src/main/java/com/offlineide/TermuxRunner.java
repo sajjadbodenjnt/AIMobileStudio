@@ -53,7 +53,9 @@ public final class TermuxRunner {
       return;
     }
 
-    if (buildType == null || !buildType.matches("debug|release|aab|aab-release")) {\n      Toast.makeText(activity, "Invalid build type.", Toast.LENGTH_LONG).show(); return;\n    }\n    String home = "/data/data/com.termux/files/home";
+    if (buildType == null || !buildType.matches("debug|release|aab|aab-release")) {
+      Toast.makeText(activity, "Invalid build type.", Toast.LENGTH_LONG).show(); return;
+    }\n    String home = "/data/data/com.termux/files/home";
     String zip = home + "/storage/downloads/" + safe + "-source.zip";
     String buildRoot = home + "/storage/downloads/aimobilestudio-builds";
     String project = buildRoot + "/" + safe;
