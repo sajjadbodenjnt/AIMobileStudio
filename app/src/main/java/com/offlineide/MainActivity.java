@@ -75,7 +75,7 @@ public class MainActivity extends Activity {
         shell("OFFLINE ANDROID IDE");
         body.addView(label("Create native Android projects on your phone.", 16));
         body.addView(label("Workspace: " + workspace.getAbsolutePath(), 11));
-        body.addView(action("New Java Project", this::newProject));
+        body.addView(action("New Android App Project", this::newProject));
         body.addView(action("Open Workspace", this::files));
         body.addView(action("Local AI Assistant", this::ai));
         body.addView(action("Build Toolchain Status", this::buildInfo));
@@ -83,18 +83,19 @@ public class MainActivity extends Activity {
     }
 
     private void newProject() {
-        EditText input = new EditText(this); input.setHint("Project name");
-        new android.app.AlertDialog.Builder(this).setTitle("Create project").setView(input)
+        EditText input = new EditText(this);
+        input.setHint("App name (letters/numbers)");
+        new android.app.AlertDialog.Builder(this).setTitle("Create Android app project").setView(input)
             .setNegativeButton("Cancel", null).setPositiveButton("Create", (d, w) -> {
-                String name = input.getText().toString().trim().replaceAll("[^A-Za-z0-9_-]", "");
+                String name = input.getText().toString().trim().replaceAll("[^A-Za-z0-9_]", "");
                 if (name.isEmpty()) name = "MyApp";
-                File dir = new File(workspace, name);
-                if (!dir.exists()) dir.mkdirs();
-                File f = new File(dir, "MainActivity.java");
                 try {
-                    writeText(f, "// " + name + "\npublic class MainActivity {\n    // Start coding here\n}\n");
-                    edit(f);
-                } catch (Exception e) { status.setText("ERROR: " + e.getMessage()); }
+                    File entry = ProjectGenerator.create(workspace, name);
+                    status.setText("ANDROID PROJECT CREATED: " + name);
+                    edit(entry);
+                } catch (Exception e) {
+                    status.setText("PROJECT ERROR: " + e.getMessage());
+                }
             }).show();
     }
 
