@@ -18,7 +18,10 @@ public final class ProjectStore {
         if(name.isEmpty())name="AndroidProject";
         File dir=new File(root,name);int n=2;while(dir.exists())dir=new File(root,name+n++);
         if(!dir.mkdirs())throw new Exception("Cannot create project directory");
-        String appId="com.generated."+dir.getName().toLowerCase().replaceAll("[^a-z0-9_]","");
+        String segment=dir.getName().toLowerCase().replaceAll("[^a-z0-9_]","");
+        if(segment.isEmpty())segment="app";
+        if(Character.isDigit(segment.charAt(0)))segment="p"+segment;
+        String appId="com.generated."+segment;
         write(new File(dir,"README.md"),"# "+dir.getName()+"\n\nAndroid project created by AI Mobile Studio.\n");
         write(new File(dir,"settings.gradle"),"pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }\n"+
             "dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }\n"+
