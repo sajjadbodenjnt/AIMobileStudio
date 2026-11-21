@@ -26,7 +26,7 @@ public final class ProjectStore {
         write(new File(dir,"build.gradle"),"plugins { id 'com.android.application' version '8.7.3' apply false }\n");
         write(new File(dir,"gradle.properties"),"org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8\nandroid.useAndroidX=true\n");
         File app=new File(dir,"app");if(!app.mkdirs())throw new Exception("Cannot create app directory");
-        write(new File(app,"build.gradle"),"plugins { id 'com.android.application' }\n\nandroid {\n    namespace '"+appId+"'\n    compileSdk 35\n    defaultConfig { applicationId '"+appId+"' minSdk 24 targetSdk 35 versionCode 1 versionName '1.0' }\n}\n");
+        write(new File(app,"build.gradle"),"plugins { id 'com.android.application' }\n\nandroid {\n    namespace '"+appId+"'\n    compileSdk 35\n    defaultConfig {\n        applicationId '"+appId+"'\n        minSdk 24\n        targetSdk 35\n        versionCode 1\n        versionName '1.0'\n    }\n}\n");
         File main=new File(app,"src/main");File javaDir=new File(main,"java/"+appId.replace('.','/'));
         if(!javaDir.mkdirs())throw new Exception("Cannot create source directory");
         write(new File(main,"AndroidManifest.xml"),"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"><application android:theme=\"@android:style/Theme.Material.Light.NoActionBar\" android:label=\""+dir.getName()+"\"><activity android:name=\".MainActivity\" android:exported=\"true\"><intent-filter><action android:name=\"android.intent.action.MAIN\"/><category android:name=\"android.intent.category.LAUNCHER\"/></intent-filter></activity></application></manifest>\n");
