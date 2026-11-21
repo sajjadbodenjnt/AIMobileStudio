@@ -38,6 +38,11 @@ public final class ProjectStore {
         if(dirs!=null)for(File f:dirs)names.add(f.getName());return names;
     }
     public String projectPath(String name){return new File(root,name).getAbsolutePath();}
+    public File projectDirectory(String name)throws Exception{
+        File base=root.getCanonicalFile();File dir=new File(base,name).getCanonicalFile();
+        if(!dir.toPath().startsWith(base.toPath())||!dir.isDirectory())throw new SecurityException("Invalid project");
+        return dir;
+    }
     public synchronized String[] listFiles(String project){
         File base=new File(root,project);List<String> result=new ArrayList<>();collect(base,base,result);return result.toArray(new String[0]);
     }
