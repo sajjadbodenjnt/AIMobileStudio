@@ -15,6 +15,8 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.content.Intent;
+import android.net.Uri;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.concurrent.ExecutorService;
@@ -29,6 +31,7 @@ public class MainActivity extends Activity {
     private Spinner language;
     private ProjectStore store;
     private String selectedProject="";
+    private static final int EXPORT_REQUEST=740;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -73,7 +76,8 @@ public class MainActivity extends Activity {
         selectedLabel=text("No project selected",13,MUTED,false);projects.addView(selectedLabel);gap(projects,10);
         projects.addView(button("＋  Create new Android project",true,this::newProject));gap(projects,10);
         projectList=new LinearLayout(this);projectList.setOrientation(1);projects.addView(projectList);gap(projects,4);
-        projects.addView(button("View generated project files",false,this::showProjectFiles));root.addView(projects);gap(root,16);
+        projects.addView(button("View generated project files",false,this::showProjectFiles));gap(projects,8);
+        projects.addView(button("Export project ZIP to phone storage",false,this::exportProject));root.addView(projects);gap(root,16);
         LinearLayout ai=panel();ai.addView(text("02  AI CODING AGENT",13,GREEN,true));gap(ai,6);
         ai.addView(text("AI returns a structured file list. The app validates paths and writes each file into the selected project.",13,MUTED,false));gap(ai,12);
         language=new Spinner(this);
@@ -157,6 +161,21 @@ public class MainActivity extends Activity {
         StringBuilder body=new StringBuilder();for(String f:files)body.append("• ").append(f).append("\n");
         new AlertDialog.Builder(this).setTitle(selectedProject+" — project files")
             .setMessage(body.length()==0?"No files yet.":body.toString()).setPositiveButton("Close",null).show();
+    }
+    private void exportProject(){
+        if(selectedProject.isEmpty()){status.setText("Select a project first.");return;}
+        Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/zip");intent.putExtra(Intent.EXTRA_TITLE,selectedProject+".zip");
+        startActivityForResult(intent,EXPORT_REQUEST);
+    }
+    @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
+        super.onActivityResult(requestCode,resultCode,data);
+        if(requestCode==EXPORT_REQUEST&&resultCode==RESULT_OK&&data!=null&&data.getData()!=null){
+            Uri uri=data.getData();String project=selectedProject;status.setText("● Exporting project ZIP…");
+            worker.execute(()->{try{ProjectExporter.write(this,store.projectDirectory(project),uri);
+                runOnUiThread(()->status.setText("● Project ZIP exported to selected location."));
+            }catch(Exception e){runOnUiThread(()->status.setText("Export failed: "+e.getMessage()));}});
+        }
     }
     private void showBuildInfo(){
         if(selectedProject.isEmpty()){status.setText("Select a project first.");return;}
