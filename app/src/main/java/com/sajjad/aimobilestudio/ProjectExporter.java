@@ -11,11 +11,9 @@ import java.util.zip.ZipOutputStream;
 public final class ProjectExporter {
     private ProjectExporter(){}
     public static void write(Context context,File project,Uri destination)throws Exception{
-        try(OutputStream raw=context.getContentResolver().openOutputStream(destination);
-            ZipOutputStream zip=new ZipOutputStream(raw)){
-            if(raw==null)throw new IllegalStateException("Cannot open destination");
-            addTree(project,project,zip);
-        }
+        OutputStream raw=context.getContentResolver().openOutputStream(destination);
+        if(raw==null)throw new IllegalStateException("Cannot open destination");
+        try(ZipOutputStream zip=new ZipOutputStream(raw)){addTree(project,project,zip);}
     }
     private static void addTree(File root,File current,ZipOutputStream zip)throws Exception{
         File[] children=current.listFiles();if(children==null)return;
