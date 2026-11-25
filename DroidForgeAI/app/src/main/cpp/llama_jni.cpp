@@ -2,6 +2,8 @@
 #include <string>
 #include <vector>
 #include <mutex>
+#include <algorithm>
+#include <cstring>
 #include <android/log.h>
 #include "llama.h"
 
