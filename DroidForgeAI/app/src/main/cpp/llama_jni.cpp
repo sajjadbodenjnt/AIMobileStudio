@@ -51,7 +51,7 @@ Java_com_droidforge_ai_LlamaNative_generateCode(JNIEnv* env, jobject, jstring pr
     env->ReleaseStringUTFChars(prompt, input);
     if (n < 0) return env->NewStringUTF("ERROR: Tokenization failed.");
     tokens.resize((size_t)n);
-    llama_memory_clear(llama_get_memory(g_ctx), true);
+    llama_kv_cache_clear(g_ctx);
     llama_batch batch = llama_batch_get_one(tokens.data(), (int)tokens.size());
     if (llama_decode(g_ctx, batch) != 0) return env->NewStringUTF("ERROR: Prompt evaluation failed.");
     auto* sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
