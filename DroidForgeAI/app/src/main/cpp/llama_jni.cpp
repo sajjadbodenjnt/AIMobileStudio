@@ -61,9 +61,10 @@ Java_com_droidforge_ai_LlamaNative_initModel(JNIEnv* env, jobject, jstring model
 
     auto cp = llama_context_default_params();
     cp.n_ctx = 2048;
-    cp.n_batch = 512;
+    // Keep the temporary compute buffers modest on mobile devices.
+    cp.n_batch = 128;
     cp.n_threads = 4;
-    cp.n_threads_batch = 4;
+    cp.n_threads_batch = 2;
     g_ctx = llama_init_from_model(g_model, cp);
     if (!g_ctx) {
         llama_model_free(g_model);
