@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import java.io.File
+import kotlin.math.roundToInt
 
 private val Bg = Color(0xFF0D1117)
 private val Panel = Color(0xFF161B22)
@@ -26,9 +27,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        setContent { MaterialTheme(colorScheme = darkColorScheme(primary = Green, background = Bg, surface = Panel)) {
-            DroidForgeScreen(File(filesDir, "generated-project"))
-        } }
+        setContent {
+            MaterialTheme(colorScheme = darkColorScheme(primary = Green, background = Bg, surface = Panel)) {
+                DroidForgeScreen(File(filesDir, "generated-project"))
+            }
+        }
     }
 }
 
@@ -40,16 +43,24 @@ private fun DroidForgeScreen(projectDir: File) {
     var code by remember { mutableStateOf("// Generated Kotlin source will appear here") }
     var log by remember { mutableStateOf("Ready. Download the GGUF model to enable offline generation.") }
     var progress by remember { mutableFloatStateOf(0f) }
+    var downloadedBytes by remember { mutableLongStateOf(0L) }
+    var totalBytes by remember { mutableLongStateOf(-1L) }
+    var progressStage by remember { mutableStateOf("Ready") }
     var downloading by remember { mutableStateOf(false) }
+    var loadingModel by remember { mutableStateOf(false) }
     var modelReady by remember { mutableStateOf(false) }
     var generating by remember { mutableStateOf(false) }
     val downloader = remember { ModelDownloader(context) }
 
-    Row(Modifier.fillMaxSize().background(Bg).padding(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(
+        Modifier.fillMaxSize().background(Bg).padding(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
         Column(Modifier.weight(2.2f).fillMaxHeight()) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("◆ DroidForge AI IDE", color = Green, fontSize = 20.sp)
-                Text(if (modelReady) "QWEN READY" else "MODEL NOT LOADED", color = if (modelReady) Green else Color.Yellow)
+                Text(if (modelReady) "QWEN READY" else "MODEL NOT LOADED",
+                    color = if (modelReady) Green else Color.Yellow)
             }
             Spacer(Modifier.height(8.dp))
             Text("Kotlin Editor", color = TextColor)
@@ -64,47 +75,121 @@ private fun DroidForgeScreen(projectDir: File) {
                     modifier = Modifier.verticalScroll(rememberScrollState()))
             }
         }
+
         Column(Modifier.weight(1f).fillMaxHeight().background(Panel).padding(12.dp)) {
             Text("AI ASSISTANT", color = Green, fontSize = 17.sp)
             Spacer(Modifier.height(8.dp))
             Text("Qwen2.5-Coder-3B-Instruct Q4_K_M", color = TextColor, fontSize = 12.sp)
-            Button(onClick = {
-                scope.launch {
-                    downloading = true
-                    log = "Downloading model..."
-                    try {
-                        val f = downloader.download { done, total ->
-                            progress = if (total > 0) done.toFloat() / total else 0f
+
+            Button(
+                onClick = {
+                    scope.launch {
+                        downloading = true
+                        loadingModel = false
+                        modelReady = false
+                        progress = 0f
+                        downloadedBytes = 0L
+                        totalBytes = -1L
+                        progressStage = "Downloading model"
+                        log = "Downloading Qwen model..."
+                        try {
+                            val file = downloader.download { done, total ->
+                                downloadedBytes = done
+                                totalBytes = total
+                                progress = if (total > 0L) done.toFloat() / total.toFloat() else 0f
+                            }
+                            downloading = false
+                            loadingModel = true
+                            progress = 0f
+                            progressStage = "Loading model into memory"
+                            log = "Download complete. Loading model into RAM..."
+                            val callback = object : ModelLoadProgress {
+                                override fun onProgress(value: Float) {
+                                    progress = value.coerceIn(0f, 1f)
+                                }
+                            }
+                            modelReady = withContextCompat {
+                                LlamaNative.initModel(file.absolutePath, callback)
+                            }
+                            progress = if (modelReady) 1f else progress
+                            progressStage = if (modelReady) "Model ready" else "Model load failed"
+                            log = if (modelReady) {
+                                "Qwen model loaded successfully. Offline inference ready."
+                            } else {
+                                "Model downloaded, but native initialization failed. Check device RAM and model compatibility."
+                            }
+                        } catch (e: Exception) {
+                            log = "Model error: ${e.message}"
+                            progressStage = "Error"
+                        } finally {
+                            downloading = false
+                            loadingModel = false
                         }
-                        modelReady = LlamaNative.initModel(f.absolutePath)
-                        log = if (modelReady) "Model loaded. Offline inference ready." else "Model downloaded, but native initialization failed."
-                    } catch (e: Exception) { log = "Download error: ${e.message}" }
-                    downloading = false
-                }
-            }, enabled = !downloading, modifier = Modifier.fillMaxWidth()) {
-                Text(if (downloading) "Downloading..." else "Download / Load Model")
+                    }
+                },
+                enabled = !downloading && !loadingModel && !generating,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (downloading) "Downloading..." else if (loadingModel) "Loading AI..." else "Download / Load Model")
             }
-            if (downloading) LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
-            Text("Prompt (বাংলা / English)", color = TextColor)
-            OutlinedTextField(prompt, { prompt = it }, modifier = Modifier.weight(1f).fillMaxWidth(),
-                placeholder = { Text("Describe the Android app you want...") })
-            Button(onClick = {
-                if (!modelReady) { log = "Download and load the model first."; return@Button }
-                scope.launch {
-                    generating = true
-                    log = "Generating Kotlin source on device..."
-                    try {
-                        code = withContextCompat { QwenCoderEngine().generate(prompt) }
-                        ProjectScaffolder(projectDir).writeComposeProject(code)
-                        log = "Source generated and project scaffolded at:\n${projectDir.absolutePath}\nAPK compilation is not yet integrated."
-                    } catch (e: Exception) { log = "Generation error: ${e.message}" }
-                    generating = false
+
+            if (downloading || loadingModel) {
+                Spacer(Modifier.height(8.dp))
+                Text(progressStage, color = Green, fontSize = 12.sp)
+                LinearProgressIndicator(progress = { progress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                val percent = (progress.coerceIn(0f, 1f) * 100f).roundToInt()
+                if (downloading) {
+                    val doneMb = downloadedBytes / (1024f * 1024f)
+                    val totalMb = if (totalBytes > 0L) totalBytes / (1024f * 1024f) else 0f
+                    Text(
+                        if (totalBytes > 0L) "$percent%  •  %.1f / %.1f MB".format(doneMb, totalMb)
+                        else "$percent%  •  %.1f MB downloaded".format(doneMb),
+                        color = TextColor, fontSize = 11.sp
+                    )
+                } else {
+                    Text("$percent%  •  Loading model tensors", color = TextColor, fontSize = 11.sp)
                 }
-            }, enabled = !generating && prompt.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+            } else if (modelReady) {
+                Text("100% • Model loaded and ready", color = Green, fontSize = 11.sp)
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Text("Prompt (বাংলা / English)", color = TextColor)
+            OutlinedTextField(
+                prompt, { prompt = it },
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                placeholder = { Text("Describe the Android app you want...") }
+            )
+            Button(
+                onClick = {
+                    if (!modelReady) {
+                        log = "Download and load the model first."
+                        return@Button
+                    }
+                    scope.launch {
+                        generating = true
+                        log = "Generating Kotlin source on device..."
+                        try {
+                            code = withContextCompat { QwenCoderEngine().generate(prompt) }
+                            ProjectScaffolder(projectDir).writeComposeProject(code)
+                            log = "Source generated and project scaffolded at:\n${projectDir.absolutePath}\nAPK compilation is not yet integrated."
+                        } catch (e: Exception) {
+                            log = "Generation error: ${e.message}"
+                        }
+                        generating = false
+                    }
+                },
+                enabled = !generating && !downloading && !loadingModel && prompt.isNotBlank(),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text(if (generating) "Generating..." else "Generate & Scaffold")
             }
-            OutlinedButton(onClick = { log = "APK build is not implemented in this source drop. Build the generated project with Android Studio or Gradle on a host." },
-                modifier = Modifier.fillMaxWidth()) { Text("Build APK (host toolchain required)") }
+            OutlinedButton(
+                onClick = { log = "APK build is not implemented in this source drop. Build the generated project with Android Studio or Gradle on a host." },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Build APK (host toolchain required)")
+            }
         }
     }
 }
