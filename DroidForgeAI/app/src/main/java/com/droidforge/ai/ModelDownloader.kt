@@ -7,12 +7,11 @@ import java.io.File
 import java.io.RandomAccessFile
 import java.net.HttpURLConnection
 import java.net.URL
-import kotlin.math.max
 
 /**
- * Streams the model to disk without buffering it in memory.
- * Progress callbacks are always delivered on the main thread because the
- * current Compose screen updates snapshot state from this callback.
+ * Streams the model to disk and keeps a partial file for retry/resume.
+ * Progress callbacks are dispatched to Main because the Compose UI updates
+ * snapshot state from this callback.
  */
 class ModelDownloader(private val context: Context) {
     companion object {
@@ -33,24 +32,24 @@ class ModelDownloader(private val context: Context) {
             return@withContext target
         }
 
-        var connection: HttpURLConnection? = null
+        var activeConnection: HttpURLConnection? = null
         try {
             val existingBytes = if (temp.exists()) temp.length() else 0L
-            connection = (URL(MODEL_URL).openConnection() as HttpURLConnection).apply {
+            val conn = (URL(MODEL_URL).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 30_000
                 readTimeout = 90_000
                 instanceFollowRedirects = true
                 setRequestProperty("Accept-Encoding", "identity")
                 if (existingBytes > 0L) setRequestProperty("Range", "bytes=$existingBytes-")
             }
+            activeConnection = conn
 
-            val response = connection.responseCode
+            val response = conn.responseCode
+            if (response == 416 && existingBytes > 0L) {
+                temp.delete()
+                throw IllegalStateException("Saved partial download was rejected. Tap download again to restart.")
+            }
             if (response !in 200..299) {
-                // If a server rejects a resume request, restart cleanly once.
-                if (existingBytes > 0L && response == HttpURLConnection.HTTP_REQUESTED_RANGE_NOT_SATISFIABLE) {
-                    temp.delete()
-                    throw IllegalStateException("Saved partial download was rejected. Tap download again to restart.")
-                }
                 throw IllegalStateException("Model download failed: HTTP $response")
             }
 
@@ -58,14 +57,13 @@ class ModelDownloader(private val context: Context) {
             if (existingBytes > 0L && !append) temp.delete()
 
             val startingBytes = if (append) existingBytes else 0L
-            val responseLength = connection.contentLengthLong
+            val responseLength = conn.contentLengthLong
             val totalBytes = if (responseLength > 0L) startingBytes + responseLength else -1L
-
-            val freeSpace = context.filesDir.usableSpace
-            if (totalBytes > 0L && freeSpace < (if (append) responseLength else totalBytes) + MIN_FREE_SPACE_BYTES) {
+            val requiredSpace = if (append && responseLength > 0L) responseLength else totalBytes
+            if (requiredSpace > 0L && context.filesDir.usableSpace < requiredSpace + MIN_FREE_SPACE_BYTES) {
                 throw IllegalStateException(
                     "Not enough storage. Need about %.2f GB plus 256 MB free space."
-                        .format((if (append) responseLength else totalBytes) / 1_073_741_824.0)
+                        .format(requiredSpace / 1_073_741_824.0)
                 )
             }
 
@@ -73,7 +71,7 @@ class ModelDownloader(private val context: Context) {
             var lastProgressAt = 0L
             RandomAccessFile(temp, "rw").use { output ->
                 if (append) output.seek(existingBytes) else output.setLength(0L)
-                connection.inputStream.use { input ->
+                conn.inputStream.use { input ->
                     val buffer = ByteArray(BUFFER_SIZE)
                     while (true) {
                         val count = input.read(buffer)
@@ -103,7 +101,6 @@ class ModelDownloader(private val context: Context) {
                 throw IllegalStateException("Cannot replace existing model file.")
             }
             if (!temp.renameTo(target)) {
-                // Same-filesystem copy fallback for filesystems that reject rename.
                 temp.copyTo(target, overwrite = true)
                 check(target.length() == temp.length()) { "Could not finalize model file." }
                 temp.delete()
@@ -114,8 +111,8 @@ class ModelDownloader(private val context: Context) {
             }
             target
         } finally {
-            connection?.disconnect()
-            // Keep .part on network/storage failures so the next attempt can resume.
+            activeConnection?.disconnect()
+            // Preserve .part after network/storage errors so the next attempt can resume.
         }
     }
 }
