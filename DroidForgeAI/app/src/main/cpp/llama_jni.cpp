@@ -13,25 +13,63 @@ static llama_model* g_model = nullptr;
 static llama_context* g_ctx = nullptr;
 static std::mutex g_mutex;
 
+struct ModelProgressData {
+    JNIEnv* env;
+    jobject callback;
+    jmethodID method;
+};
+
+static bool report_model_progress(float progress, void* user_data) {
+    auto* data = static_cast<ModelProgressData*>(user_data);
+    if (data == nullptr || data->env == nullptr || data->callback == nullptr || data->method == nullptr) {
+        return true;
+    }
+    const float bounded = std::max(0.0f, std::min(progress, 1.0f));
+    data->env->CallVoidMethod(data->callback, data->method, bounded);
+    if (data->env->ExceptionCheck()) {
+        data->env->ExceptionClear();
+        return true;
+    }
+    return true;
+}
+
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_droidforge_ai_LlamaNative_initModel(JNIEnv* env, jobject, jstring model_path) {
+Java_com_droidforge_ai_LlamaNative_initModel(JNIEnv* env, jobject, jstring model_path, jobject progress_callback) {
     std::lock_guard<std::mutex> lock(g_mutex);
     if (g_ctx) { llama_free(g_ctx); g_ctx = nullptr; }
     if (g_model) { llama_model_free(g_model); g_model = nullptr; }
+
     const char* path = env->GetStringUTFChars(model_path, nullptr);
+    if (path == nullptr) return JNI_FALSE;
+
+    ModelProgressData progress_data{};
+    progress_data.env = env;
+    progress_data.callback = progress_callback;
+    jclass callback_class = env->GetObjectClass(progress_callback);
+    progress_data.method = env->GetMethodID(callback_class, "onProgress", "(F)V");
+
     llama_backend_init();
     auto mp = llama_model_default_params();
     mp.n_gpu_layers = 0;
+    mp.progress_callback = report_model_progress;
+    mp.progress_callback_user_data = &progress_data;
     g_model = llama_model_load_from_file(path, mp);
     env->ReleaseStringUTFChars(model_path, path);
+    env->DeleteLocalRef(callback_class);
+
     if (!g_model) { LOGE("Model load failed"); return JNI_FALSE; }
+
     auto cp = llama_context_default_params();
     cp.n_ctx = 2048;
     cp.n_batch = 512;
     cp.n_threads = 4;
     cp.n_threads_batch = 4;
     g_ctx = llama_init_from_model(g_model, cp);
-    if (!g_ctx) { llama_model_free(g_model); g_model = nullptr; return JNI_FALSE; }
+    if (!g_ctx) {
+        llama_model_free(g_model);
+        g_model = nullptr;
+        return JNI_FALSE;
+    }
     return JNI_TRUE;
 }
 
