@@ -85,6 +85,7 @@ object VisualDesignEngine {
         serializer.attribute(ANDROID, "layout_width", "match_parent")
         serializer.attribute(ANDROID, "layout_height", "wrap_content")
         serializer.attribute(ANDROID, "text", document.screenName)
+        serializer.attribute(ANDROID, "tag", "droidforge:screen-title")
         serializer.attribute(ANDROID, "textColor", "#FFFFFF")
         serializer.attribute(ANDROID, "textSize", "22sp")
         serializer.attribute(ANDROID, "padding", "8dp")
@@ -112,16 +113,15 @@ object VisualDesignEngine {
                     serializer.attribute(ANDROID, "layout_height", node.height)
                     serializer.attribute(ANDROID, "layout_margin", "${node.marginDp}dp")
                     serializer.attribute(ANDROID, "padding", "${node.paddingDp}dp")
-                    serializer.attribute(ANDROID, "text", node.text)
+                    if (node.kind == DesignKind.INPUT) {
+                        serializer.attribute(ANDROID, "hint", node.text)
+                        serializer.attribute(ANDROID, "inputType", "text")
+                    } else {
+                        serializer.attribute(ANDROID, "text", node.text)
+                    }
                     if (node.kind == DesignKind.TEXT) {
                         serializer.attribute(ANDROID, "textColor", "#FFFFFF")
                         serializer.attribute(ANDROID, "textSize", "16sp")
-                    }
-                    if (node.kind == DesignKind.CARD) {
-                        serializer.attribute(ANDROID, "textColor", "#FFFFFF")
-                        serializer.attribute(ANDROID, "textSize", "16sp")
-                        serializer.attribute(ANDROID, "background", node.background)
-                        serializer.attribute(ANDROID, "tag", "droidforge:card")
                     }
                     if (node.kind == DesignKind.BUTTON) {
                         serializer.attribute(ANDROID, "allCaps", "false")
@@ -139,6 +139,7 @@ object VisualDesignEngine {
         val parser = Xml.newPullParser()
         parser.setInput(StringReader(xml))
         val nodes = mutableListOf<DesignNode>()
+        var importedScreenName = screenName
         var event = parser.eventType
         while (event != XmlPullParser.END_DOCUMENT) {
             if (event == XmlPullParser.START_TAG) {
@@ -150,8 +151,11 @@ object VisualDesignEngine {
                     "Switch", "ToggleButton" -> DesignKind.TOGGLE
                     else -> null
                 }
-                if (kind != null) {
+                if (tag == "TextView" && parser.getAttributeValue(ANDROID, "tag") == "droidforge:screen-title") {
+                    importedScreenName = parser.getAttributeValue(ANDROID, "text") ?: screenName
+                } else if (kind != null) {
                     val text = parser.getAttributeValue(ANDROID, "text")
+                        ?: parser.getAttributeValue(ANDROID, "hint")
                         ?: parser.getAttributeValue(null, "text")
                         ?: when (kind) {
                             DesignKind.TEXT -> "Text"
@@ -167,13 +171,9 @@ object VisualDesignEngine {
                         height = parser.getAttributeValue(ANDROID, "layout_height") ?: "wrap_content"
                     )
                 }
-                if (tag == "LinearLayout") {
-                    val childText = parser.getAttributeValue(ANDROID, "text")
-                    if (!childText.isNullOrBlank()) nodes += DesignNode(kind = DesignKind.CARD, text = childText)
-                }
             }
             event = parser.next()
         }
-        return DesignDocument(screenName = screenName, nodes = nodes)
+        return DesignDocument(screenName = importedScreenName, nodes = nodes)
     }
 }
