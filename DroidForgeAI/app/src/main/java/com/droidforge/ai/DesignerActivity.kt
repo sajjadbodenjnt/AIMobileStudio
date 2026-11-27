@@ -102,7 +102,11 @@ private fun DroidForgePortraitScreen(modelFile: File, onBuild: () -> Unit) {
     fun sync(next: DesignDocument) {
         document = next
         xml = VisualDesignEngine.toXml(next)
-        runCatching { designFile.writeText(xml) }
+        runCatching {
+            designFile.writeText(xml)
+            ProjectScaffolder(File(modelFile.parentFile, "GeneratedAndroidProject"))
+                .writeXmlAndroidProject(xml, next.screenName)
+        }
         xmlError = null
     }
 
@@ -268,6 +272,20 @@ private fun DroidForgePortraitScreen(modelFile: File, onBuild: () -> Unit) {
                     ToolStatus("apksigner", false, Modifier.weight(1f))
                 }
                 Text(buildStatus, color = Color(0xFFFFC66D), fontSize = 9.sp)
+                OutlinedButton(
+                    onClick = {
+                        try {
+                            val output = ProjectScaffolder(File(modelFile.parentFile, "GeneratedAndroidProject"))
+                                .writeXmlAndroidProject(xml, document.screenName)
+                            designFile.writeText(xml)
+                            buildStatus = "Source project saved: ${output.absolutePath}"
+                            chatStatus = "Android Views source files and activity_main.xml saved locally."
+                        } catch (e: Exception) {
+                            buildStatus = "Project save failed: ${e.message}"
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Save Android Project", fontSize = 10.sp) }
             }
 
             Spacer(Modifier.height(8.dp))
