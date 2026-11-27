@@ -24,7 +24,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -127,8 +126,15 @@ private fun DroidForgePortraitScreen(modelFile: File, onBuild: () -> Unit) {
                 }
                 Button(
                     onClick = {
-                        buildStatus = "BLOCKED: local aapt2, D8, zipalign and apksig toolchain are not bundled."
-                        chatStatus = "APK build cannot be marked ready until the on-device compiler is implemented and tested."
+                        try {
+                            val output = ProjectScaffolder(File(modelFile.parentFile, "GeneratedAndroidProject"))
+                                .writeXmlAndroidProject(xml, document.screenName)
+                            designFile.writeText(xml)
+                            buildStatus = "Source project saved at ${output.absolutePath}; APK compile blocked: local aapt2, D8, zipalign and apksig are not bundled."
+                            chatStatus = "Your Android XML and Java source were generated. APK is not ready because the offline compiler is not installed."
+                        } catch (e: Exception) {
+                            buildStatus = "Source generation failed: ${e.message}"
+                        }
                         onBuild()
                     },
                     contentPadding = PaddingValues(horizontal = 11.dp, vertical = 7.dp),
