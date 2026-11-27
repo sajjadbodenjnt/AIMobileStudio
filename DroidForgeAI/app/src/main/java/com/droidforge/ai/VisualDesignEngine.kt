@@ -93,20 +93,18 @@ object VisualDesignEngine {
         document.nodes.forEach { node ->
             when (node.kind) {
                 DesignKind.CARD -> {
-                    serializer.startTag(null, "LinearLayout")
+                    // A styled TextView is used as a lightweight card so it inflates with Android framework only.
+                    serializer.startTag(null, "TextView")
                     serializer.attribute(ANDROID, "layout_width", node.width)
                     serializer.attribute(ANDROID, "layout_height", node.height)
-                    serializer.attribute(ANDROID, "orientation", "vertical")
                     serializer.attribute(ANDROID, "layout_margin", "${node.marginDp}dp")
                     serializer.attribute(ANDROID, "padding", "${node.paddingDp}dp")
                     serializer.attribute(ANDROID, "background", node.background)
-                    serializer.startTag(null, "TextView")
-                    serializer.attribute(ANDROID, "layout_width", "match_parent")
-                    serializer.attribute(ANDROID, "layout_height", "wrap_content")
                     serializer.attribute(ANDROID, "text", node.text)
                     serializer.attribute(ANDROID, "textColor", "#FFFFFF")
+                    serializer.attribute(ANDROID, "textSize", "16sp")
+                    serializer.attribute(ANDROID, "tag", "droidforge:card")
                     serializer.endTag(null, "TextView")
-                    serializer.endTag(null, "LinearLayout")
                 }
                 else -> {
                     serializer.startTag(null, node.kind.xmlTag)
