@@ -60,4 +60,79 @@ dependencies {
         }
         return root
     }
+
+    /** Writes a dependency-free Android Views project from the current designer XML.
+     * This generates source files only; it does not claim to compile an APK on-device.
+     */
+    fun writeXmlAndroidProject(layoutXml: String, appLabel: String = "Generated App"): File {
+        val pkg = "com.example.generated"
+        val javaDir = File(root, "app/src/main/java/com/example/generated").apply { mkdirs() }
+        val layoutDir = File(root, "app/src/main/res/layout").apply { mkdirs() }
+        File(layoutDir, "activity_main.xml").writeText(layoutXml)
+        File(javaDir, "MainActivity.java").writeText(
+            """package com.example.generated;
+
+import android.app.Activity;
+import android.os.Bundle;
+
+public final class MainActivity extends Activity {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+    }
+}
+"""
+        )
+        File(root, "settings.gradle.kts").writeText(
+            """pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+dependencyResolutionManagement { repositories { google(); mavenCentral() } }
+rootProject.name = "DroidForgeGeneratedApp"
+include(":app")
+"""
+        )
+        File(root, "build.gradle.kts").writeText(
+            """plugins {
+    id("com.android.application") version "8.7.3" apply false
+}
+"""
+        )
+        File(root, "app/build.gradle.kts").apply {
+            parentFile?.mkdirs()
+            writeText(
+                """plugins { id("com.android.application") }
+android {
+    namespace = "$pkg"
+    compileSdk = 35
+    defaultConfig {
+        applicationId = "$pkg"
+        minSdk = 26
+        targetSdk = 35
+        versionCode = 1
+        versionName = "1.0"
+    }
+}
+"""
+            )
+        }
+        File(root, "app/src/main/AndroidManifest.xml").apply {
+            parentFile?.mkdirs()
+            writeText(
+                """<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:label="$appLabel" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <activity android:name=".MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
+"""
+            )
+        }
+        return root
+    }
+
 }
