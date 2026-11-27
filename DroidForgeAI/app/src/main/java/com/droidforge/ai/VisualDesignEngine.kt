@@ -14,7 +14,7 @@ enum class DesignKind(val xmlTag: String, val displayName: String) {
     TEXT("TextView", "Text"),
     BUTTON("Button", "Button"),
     INPUT("EditText", "Input"),
-    CARD("LinearLayout", "Card"),
+    CARD("TextView", "Card"),
     TOGGLE("Switch", "Toggle")
 }
 
@@ -119,6 +119,12 @@ object VisualDesignEngine {
                         serializer.attribute(ANDROID, "textColor", "#FFFFFF")
                         serializer.attribute(ANDROID, "textSize", "16sp")
                     }
+                    if (node.kind == DesignKind.CARD) {
+                        serializer.attribute(ANDROID, "textColor", "#FFFFFF")
+                        serializer.attribute(ANDROID, "textSize", "16sp")
+                        serializer.attribute(ANDROID, "background", node.background)
+                        serializer.attribute(ANDROID, "tag", "droidforge:card")
+                    }
                     if (node.kind == DesignKind.BUTTON) {
                         serializer.attribute(ANDROID, "allCaps", "false")
                     }
@@ -140,7 +146,7 @@ object VisualDesignEngine {
             if (event == XmlPullParser.START_TAG) {
                 val tag = parser.name
                 val kind = when (tag) {
-                    "TextView" -> DesignKind.TEXT
+                    "TextView" -> if (parser.getAttributeValue(ANDROID, "tag") == "droidforge:card") DesignKind.CARD else DesignKind.TEXT
                     "Button" -> DesignKind.BUTTON
                     "EditText" -> DesignKind.INPUT
                     "Switch", "ToggleButton" -> DesignKind.TOGGLE
