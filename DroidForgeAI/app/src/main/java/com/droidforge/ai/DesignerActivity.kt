@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -22,6 +23,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -61,7 +64,27 @@ class DesignerActivity : ComponentActivity() {
 
 @Composable
 private fun DroidForgePortraitScreen(modelFile: File, onBuild: () -> Unit) {
-    var document by remember { mutableStateOf(DesignDocument(screenName = "My Fitness")) }
+    val designFile = remember(modelFile) { File(modelFile.parentFile, "design.xml") }
+    val starterDocument = remember {
+        DesignDocument(
+            screenName = "My Fitness",
+            nodes = listOf(
+                DesignNode(kind = DesignKind.TEXT, text = "👤  Rakib Ali  •  Healthy Life, Happy Life!", background = "#10243C"),
+                DesignNode(kind = DesignKind.CARD, text = "🏃 Steps  8,450", background = "#075985"),
+                DesignNode(kind = DesignKind.CARD, text = "🔥 Calories  320", background = "#92400E"),
+                DesignNode(kind = DesignKind.CARD, text = "📅 Workout  5 days", background = "#065F46"),
+                DesignNode(kind = DesignKind.BUTTON, text = "✎  Edit Profile", background = "#5425D8")
+            )
+        )
+    }
+    var document by remember {
+        mutableStateOf(
+            runCatching {
+                if (designFile.exists()) VisualDesignEngine.fromXml(designFile.readText(), "My Fitness")
+                else starterDocument
+            }.getOrElse { starterDocument }
+        )
+    }
     var xml by remember { mutableStateOf(VisualDesignEngine.toXml(document)) }
     var selectedId by remember { mutableStateOf<String?>(null) }
     var prompt by remember { mutableStateOf("") }
@@ -79,6 +102,7 @@ private fun DroidForgePortraitScreen(modelFile: File, onBuild: () -> Unit) {
     fun sync(next: DesignDocument) {
         document = next
         xml = VisualDesignEngine.toXml(next)
+        runCatching { designFile.writeText(xml) }
         xmlError = null
     }
 
@@ -194,11 +218,32 @@ private fun DroidForgePortraitScreen(modelFile: File, onBuild: () -> Unit) {
                 document.nodes.forEachIndexed { index, node ->
                     val active = selectedId == node.id
                     Row(
-                        Modifier.fillMaxWidth().padding(top = 4.dp).background(if (active) Color(0xFF173958) else DfPanel2, RoundedCornerShape(8.dp)).border(1.dp, if (active) DfCyan else Color.Transparent, RoundedCornerShape(8.dp)).padding(horizontal = 7.dp, vertical = 4.dp),
+                        Modifier.fillMaxWidth()
+                            .pointerInput(node.id, document.nodes) {
+                                var dragDistance = 0f
+                                detectDragGesturesAfterLongPress(
+                                    onDragEnd = {
+                                        if (kotlin.math.abs(dragDistance) > 28f) {
+                                            val target = (index + if (dragDistance > 0f) 1 else -1).coerceIn(0, document.nodes.lastIndex)
+                                            sync(VisualDesignEngine.move(document, node.id, target))
+                                        }
+                                        dragDistance = 0f
+                                    },
+                                    onDragCancel = { dragDistance = 0f },
+                                    onDrag = { change, amount ->
+                                        dragDistance += amount.y
+                                        change.consume()
+                                    }
+                                )
+                            }
+                            .padding(top = 4.dp)
+                            .background(if (active) Color(0xFF173958) else DfPanel2, RoundedCornerShape(8.dp))
+                            .border(1.dp, if (active) DfCyan else Color.Transparent, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 7.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         TextButton(onClick = { selectedId = node.id }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) {
-                            Text("${node.kind.displayName}: ${node.text}", color = DfText, fontSize = 9.sp, maxLines = 1)
+                            Text("⠿  ${node.kind.displayName}: ${node.text}", color = DfText, fontSize = 9.sp, maxLines = 1)
                         }
                         TextButton(onClick = { sync(VisualDesignEngine.move(document, node.id, (index - 1).coerceAtLeast(0))) }, contentPadding = PaddingValues(0.dp)) { Text("↑", color = DfCyan) }
                         TextButton(onClick = { sync(VisualDesignEngine.move(document, node.id, (index + 1).coerceAtMost(document.nodes.lastIndex))) }, contentPadding = PaddingValues(0.dp)) { Text("↓", color = DfCyan) }
