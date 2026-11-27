@@ -8,6 +8,7 @@
         android:label="DroidForge AI"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="false">
+        <activity android:name=".DesignerActivity" android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:screenOrientation="landscape"
