@@ -115,7 +115,7 @@ private fun DroidForgeScreen(projectDir: File, openReleases: () -> Unit) {
                         if (prompt.isBlank()) prompt = "Create a simple Android quiz app with a home screen, multiple-choice questions, score and restart button."
                     }
                     ActionTile("‹/›  Build APK", "Open build releases", Cyan, Modifier.weight(1f), openReleases)
-                    ActionTile("▶  Run Preview", "Phone preview", Green, Modifier.weight(1f)) { showPreview = !showPreview }
+                    ActionTile("▶  Run Preview", "Open visual designer", Green, Modifier.weight(1f)) { context.startActivity(Intent(context, DesignerActivity::class.java)) }
                 }
 
                 Column(Modifier.weight(1f).fillMaxWidth().background(Panel, RoundedCornerShape(10.dp)).border(1.dp, Color(0xFF214333), RoundedCornerShape(10.dp))) {
